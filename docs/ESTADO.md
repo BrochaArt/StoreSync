@@ -43,10 +43,24 @@ Estado tras reimportar, medido sobre la respuesta del API:
 | año | 0/205 | **66** (los 37 canvas impresos no tienen: el año es de la obra original) |
 | técnica | 0/205 | **103** |
 
-Los 29 digitales quedan solo con `category` — son enlaces a NFT, sin atributos físicos.
-
 El mapa colección→categoría usado para sembrar los valores vivió en un script
 desechable fuera del repo; el pipeline sigue sin una línea específica de esta tienda.
+
+**Segunda tanda (mismo día):** pares `Etiqueta: valor` que quedaban en la prosa —
+`Material` (109), `Información adicional` (109), `Tipo de papel` (73) y `Enlace NFT`
+(18) — con **lista blanca de etiquetas medidas**, nunca "lo que esté en `<strong>`":
+hay dos productos con la técnica y la medida en negrita que habrían generado
+metafields basura. 309 metafields sobre 127 productos, sin errores. Resultado:
+194/205 productos con al menos un detalle, promedio de 4 por producto.
+
+**`012` + `013` — `description_text`:** campo nuevo con la descripción en texto plano.
+Se calcula al LEER (`html_a_texto`), no al escribir, porque la descripción entra por
+dos caminos (import GraphQL y webhook REST) y hacerlo al escribir obligaría a mantener
+el mismo limpiador en TypeScript y en Deno. La 013 corrige dos defectos que solo
+aparecieron con datos reales: espacios U+00A0 **literales** (no la entidad `&nbsp;`)
+que deja el pegado desde Notion, y `btrim` sin argumentos, que no recorta saltos de
+línea. Barrido de los 205: cero residuos HTML, cero espacios invisibles, cero bordes
+sucios.
 
 | Archivo | Qué hace |
 |---|---|

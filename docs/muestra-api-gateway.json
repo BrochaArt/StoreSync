@@ -23,6 +23,7 @@
       "title": "Obra de ejemplo",
       "handle": "obra-de-ejemplo",
       "description_html": "<p>Acrylic on canvas, 2024</p>\n<p>39\" x 27\" (100cm x 70cm)</p>",
+      "description_text": "Acrylic on canvas, 2024\n\n39\" x 27\" (100cm x 70cm)",
       "status": "active",
       "updated_at": "2026-01-15T10:00:00+00:00",
       "artist": "Artista Demo",
@@ -30,14 +31,20 @@
       "category": "Obra Original",
       "vendor": "Demo Studio",
       "product_type": "Obra",
-      "tags": ["Acrylic"],
+      "tags": [
+        "Acrylic"
+      ],
       "shopify_taxonomy": {
         "id": "aa-1",
         "name": "Artwork",
         "full_name": "Arts & Entertainment > Artwork"
       },
       "collections": [
-        { "id": "2222222222", "title": "Originales", "handle": "originales" }
+        {
+          "id": "2222222222",
+          "title": "Originales",
+          "handle": "originales"
+        }
       ],
       "details": [
         {
@@ -81,7 +88,12 @@
           "title": "Default Title",
           "sku": null,
           "price": 1200,
-          "options": [{ "name": "Title", "value": "Default Title" }],
+          "options": [
+            {
+              "name": "Title",
+              "value": "Default Title"
+            }
+          ],
           "inventory": [
             {
               "location_id": "44444444",
@@ -98,6 +110,7 @@
       "title": "Póster de ejemplo",
       "handle": "poster-de-ejemplo",
       "description_html": "<p><strong>Material:</strong> Papel fotográfico</p>",
+      "description_text": "Material: Papel fotográfico",
       "status": "active",
       "updated_at": "2026-01-15T10:01:00+00:00",
       "artist": "Artista Demo",
@@ -108,7 +121,11 @@
       "tags": [],
       "shopify_taxonomy": null,
       "collections": [
-        { "id": "2222222223", "title": "Posters", "handle": "posters" }
+        {
+          "id": "2222222223",
+          "title": "Posters",
+          "handle": "posters"
+        }
       ],
       "details": [],
       "images": [
@@ -127,7 +144,12 @@
           "title": "30 x 40",
           "sku": null,
           "price": 20,
-          "options": [{ "name": "Size", "value": "30 x 40" }],
+          "options": [
+            {
+              "name": "Size",
+              "value": "30 x 40"
+            }
+          ],
           "inventory": [
             {
               "location_id": "44444444",
@@ -142,7 +164,12 @@
           "title": "50 x 70",
           "sku": null,
           "price": 35,
-          "options": [{ "name": "Size", "value": "50 x 70" }],
+          "options": [
+            {
+              "name": "Size",
+              "value": "50 x 70"
+            }
+          ],
           "inventory": [
             {
               "location_id": "44444444",
