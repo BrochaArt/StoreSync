@@ -44,7 +44,7 @@ runsql "do \$\$ declare v_artist uuid; begin
   if v_artist is null then
     insert into artists (name) values ('Artista Prueba Local') returning id into v_artist;
   end if;
-  perform create_shop_with_secrets(v_artist, '$DOMAIN', 'shpat_token_prueba_local',
+  perform create_shop_with_secrets(v_artist, '$DOMAIN', 'client_id_prueba_local',
                                    '$SECRET', '77777777777', true);
 end \$\$;"
 ok "tienda de prueba lista ($MODE)"

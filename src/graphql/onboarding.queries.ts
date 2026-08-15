@@ -1,17 +1,7 @@
 // Queries usadas por la validación de onboarding (guía §2.2).
-
-export const SHOP_QUERY = /* GraphQL */ `
-  query ShopInfo {
-    shop {
-      name
-      myshopifyDomain
-    }
-  }
-`;
-
-export interface ShopQueryData {
-  shop: { name: string; myshopifyDomain: string };
-}
+// No hay query de verificación de tienda/token: con Client Credentials grant,
+// mintear el access_token contra el shopDomain YA prueba que el client_id/
+// secret son válidos, pertenecen a esa tienda y que la app está instalada.
 
 export const LOCATIONS_QUERY = /* GraphQL */ `
   query Locations {

@@ -1,14 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   LOCATIONS_QUERY,
-  SHOP_QUERY,
   TRACKING_SAMPLE_QUERY,
   type LocationsQueryData,
-  type ShopQueryData,
   type TrackingSampleData,
 } from "../graphql/onboarding.queries.js";
 import { numericId } from "./gid.js";
-import { ShopifyAuthError, shopifyGraphql } from "./shopify-client.js";
+import { mintAccessToken, ShopifyAuthError, shopifyGraphql } from "./shopify-client.js";
 
 /** El alta se bloquea: se reportan TODAS las fallas y no se persiste nada. */
 export class OnboardingBlockedError extends Error {
@@ -21,8 +19,10 @@ export class OnboardingBlockedError extends Error {
 export interface OnboardShopParams {
   artistId: string;
   shopDomain: string;
-  accessToken: string;
-  webhookSecret: string;
+  /** Client ID de la app (Dev Dashboard). No es secreto por sí solo. */
+  clientId: string;
+  /** Client secret — mintea el access_token y firma los webhooks de esta tienda. */
+  clientSecret: string;
   /** id numérico o gid://shopify/Location/... */
   locationId: string;
 }
@@ -38,13 +38,16 @@ const DOMAIN_RE = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
 
 /**
  * Valida los 6 requisitos de la guía §2.2 y, SOLO si todos pasan, persiste
- * (secretos a Vault + fila en shops) vía create_shop_with_secrets (mig. 004).
+ * (secreto a Vault + fila en shops) vía create_shop_with_secrets (mig. 007).
  *
  *   1. shop URL con formato artista.myshopify.com
- *   2. Admin API token válido      ─┐ query `shop`: el token de una Custom App
- *   6. Custom App instalada        ─┘ solo funciona instalada; además se
- *      verifica que myshopifyDomain coincida (token de OTRA tienda = falla)
- *   3. webhook secret presente (verificable solo con el primer webhook real)
+ *   2. Admin API "token" válido   ─┐ Client Credentials grant: mintear el
+ *   6. Custom App instalada       ─┘ access_token contra ESTA tienda prueba
+ *      ambos a la vez — si el client_id/secret son de otra tienda o la app
+ *      no está instalada ahí, Shopify rechaza el mint (no hace falta cruzar
+ *      myshopifyDomain a mano: el shop va en la URL del propio mint).
+ *   3. webhook secret presente = client_secret (mismo valor, confirmado
+ *      contra shopify.dev — ya validado por requisito 2/6 si el mint pasó)
  *   4. location_id existe y está ACTIVA contra la API (guía: "verify early")
  *   5. inventory tracking ON por muestreo de variantes (docs/PENDIENTES.md #2)
  */
@@ -62,42 +65,42 @@ export async function onboardShop(
     ]);
   }
 
-  // Requisito 3 — no verificable contra la API; chequeo de presencia/forma
-  if (params.webhookSecret.trim().length < 16) {
-    fallas.push("Webhook secret ausente o demasiado corto (< 16 caracteres)");
+  // Chequeo de forma — antes de gastar una llamada a Shopify
+  if (params.clientSecret.trim().length < 16) {
+    fallas.push("Client secret ausente o demasiado corto (< 16 caracteres)");
   }
 
-  // Requisitos 2 y 6 — token + app instalada
-  let apiOk = false;
+  // Requisitos 2, 3 y 6 — mintear YA prueba: client_id/secret válidos,
+  // pertenecen a ESTA tienda, y la app está instalada ahí.
+  let accessToken = "";
   try {
-    const data = await shopifyGraphql<ShopQueryData>({
-      shopDomain,
-      accessToken: params.accessToken,
-      query: SHOP_QUERY,
-    });
-    if (data.shop.myshopifyDomain.toLowerCase() === shopDomain) {
-      apiOk = true;
-    } else {
-      fallas.push(`El token pertenece a otra tienda (${data.shop.myshopifyDomain})`);
-    }
+    accessToken = (
+      await mintAccessToken({
+        shopDomain,
+        clientId: params.clientId,
+        clientSecret: params.clientSecret,
+      })
+    ).accessToken;
   } catch (e) {
     if (e instanceof ShopifyAuthError) {
-      fallas.push("Token rechazado (401/403): inválido, revocado o Custom App no instalada");
+      fallas.push(
+        "Client ID/Secret rechazados (401/403): inválidos, o la app no está instalada en esta tienda",
+      );
     } else {
-      fallas.push(`No se pudo validar el token contra la API: ${(e as Error).message}`);
+      fallas.push(`No se pudo mintear el access token: ${(e as Error).message}`);
     }
   }
 
   let locationName = "";
   let trackedRatio = 0;
 
-  if (apiOk) {
+  if (accessToken) {
     // Requisito 4 — la falla silenciosa más común en multi-tienda es escribir
     // a una location equivocada o desactivada (guía §2.2): verificar temprano.
     const wantedId = numericId(params.locationId);
     const locs = await shopifyGraphql<LocationsQueryData>({
       shopDomain,
-      accessToken: params.accessToken,
+      accessToken,
       query: LOCATIONS_QUERY,
     });
     const loc = locs.locations.nodes.find((l) => numericId(l.id) === wantedId);
@@ -116,7 +119,7 @@ export async function onboardShop(
     // confirmarlo: se bloquea (dirección segura del invariante).
     const sample = await shopifyGraphql<TrackingSampleData>({
       shopDomain,
-      accessToken: params.accessToken,
+      accessToken,
       query: TRACKING_SAMPLE_QUERY,
     });
     const total = sample.productVariants.nodes.length;
@@ -134,12 +137,12 @@ export async function onboardShop(
     throw new OnboardingBlockedError(fallas);
   }
 
-  // Persistencia todo-o-nada (Vault + shops en una transacción, migración 004)
+  // Persistencia todo-o-nada (Vault + shops en una transacción, migración 007)
   const { data, error } = await supabase.rpc("create_shop_with_secrets", {
     p_artist_id: params.artistId,
     p_shop_domain: shopDomain,
-    p_access_token: params.accessToken,
-    p_webhook_secret: params.webhookSecret,
+    p_client_id: params.clientId,
+    p_client_secret: params.clientSecret,
     p_location_id: numericId(params.locationId),
     p_inventory_tracked: true,
   });

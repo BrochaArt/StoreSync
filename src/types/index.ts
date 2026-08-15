@@ -1,10 +1,15 @@
 // Tipos compartidos entre servicios, workers y Edge Functions.
 
-/** Fila que devuelve get_shop_credentials (migración 003). Solo en memoria: jamás loguear. */
+/**
+ * Fila que devuelve get_shop_credentials (migración 007). Solo en memoria:
+ * jamás loguear. client_secret firma los webhooks Y mintea el access_token
+ * (Client Credentials grant — Shopify retiró las Custom Apps clásicas el
+ * 1-ene-2026, ya no hay un access_token permanente que guardar).
+ */
 export interface ShopCredentials {
   shop_domain: string;
-  access_token: string;
-  webhook_secret: string;
+  client_id: string;
+  client_secret: string;
   location_id: string;
 }
 

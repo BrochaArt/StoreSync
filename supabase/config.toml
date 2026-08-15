@@ -415,3 +415,8 @@ verify_jwt = false
 # Auth manual con service key exacto en tiempo constante (un JWT anon valido
 # pasaria verify_jwt y nadie mas que el sistema debe drenar la cola)
 verify_jwt = false
+
+[functions.api-gateway]
+# El consumidor externo autentica con su propia API key (sha256 vs key_hash),
+# no con JWT de Supabase: la auth la aplica la función en código (Decisión 6)
+verify_jwt = false

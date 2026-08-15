@@ -19,6 +19,44 @@ export class ShopifyGraphqlError extends Error {
   }
 }
 
+export interface MintedToken {
+  accessToken: string;
+  expiresIn: number;
+}
+
+/**
+ * Client Credentials grant (Shopify retiró las Custom Apps clásicas el
+ * 1-ene-2026): mintea un access_token válido 24h contra el client_id/secret
+ * de la tienda. Sin caché ni cron — cada operación mintea el suyo al empezar
+ * y lo usa durante toda su corrida; "refresco automático" es simplemente
+ * nunca reutilizar uno viejo entre corridas.
+ */
+export async function mintAccessToken(opts: {
+  shopDomain: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<MintedToken> {
+  const res = await fetch(`https://${opts.shopDomain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: opts.clientId,
+      client_secret: opts.clientSecret,
+    }),
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    throw new ShopifyAuthError(res.status, opts.shopDomain);
+  }
+  if (!res.ok) {
+    throw new Error(`No se pudo mintear access token para ${opts.shopDomain}: HTTP ${res.status}`);
+  }
+
+  const body = (await res.json()) as { access_token: string; expires_in: number };
+  return { accessToken: body.access_token, expiresIn: body.expires_in };
+}
+
 interface GraphqlError {
   message: string;
   extensions?: { code?: string };

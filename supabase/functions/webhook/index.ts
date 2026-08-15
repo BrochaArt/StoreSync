@@ -42,9 +42,11 @@ Deno.serve(async (req: Request) => {
     return new Response("unauthorized", { status: 401 });
   }
 
-  // 3. Webhook secret desde Vault — vive solo en memoria durante el request
+  // 3. client_secret desde Vault — firma los webhooks (Shopify retiró el
+  //    webhook secret separado con las Custom Apps clásicas; confirmado
+  //    contra shopify.dev). Vive solo en memoria durante el request.
   const { data: creds } = await supabase.rpc("get_shop_credentials", { p_shop_id: shop.id });
-  const secret: string | undefined = creds?.[0]?.webhook_secret;
+  const secret: string | undefined = creds?.[0]?.client_secret;
   if (!secret || !verifyWebhook(raw, hmac, secret)) {
     return new Response("unauthorized", { status: 401 });
   }

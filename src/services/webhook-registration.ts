@@ -8,7 +8,7 @@ import {
   type WebhookTopic,
 } from "../graphql/webhooks.mutations.js";
 import type { ShopCredentials } from "../types/index.js";
-import { shopifyGraphql } from "./shopify-client.js";
+import { mintAccessToken, shopifyGraphql } from "./shopify-client.js";
 
 export interface RegistrationSummary {
   registered: WebhookTopic[];
@@ -34,6 +34,12 @@ export async function registerWebhooksForShop(
     throw new Error(`No hay credenciales para la tienda ${shopId}: ${error?.message ?? "sin fila"}`);
   }
   const creds = credsRows[0] as ShopCredentials;
+  // Un solo mint para toda la corrida (24h de validez, de sobra aquí)
+  const { accessToken } = await mintAccessToken({
+    shopDomain: creds.shop_domain,
+    clientId: creds.client_id,
+    clientSecret: creds.client_secret,
+  });
 
   // Suscripciones ya existentes para este callback (paginado por si hay muchas)
   const existentes = new Set<string>();
@@ -41,7 +47,7 @@ export async function registerWebhooksForShop(
   do {
     const page: ListWebhooksData = await shopifyGraphql<ListWebhooksData>({
       shopDomain: creds.shop_domain,
-      accessToken: creds.access_token,
+      accessToken,
       query: LIST_WEBHOOKS_QUERY,
       variables: { cursor },
     });
@@ -64,7 +70,7 @@ export async function registerWebhooksForShop(
     }
     const data = await shopifyGraphql<CreateWebhookData>({
       shopDomain: creds.shop_domain,
-      accessToken: creds.access_token,
+      accessToken,
       query: CREATE_WEBHOOK_MUTATION,
       variables: { topic, sub: { callbackUrl, format: "JSON" } },
     });

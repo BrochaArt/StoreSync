@@ -1,6 +1,8 @@
 -- Seed de tienda de prueba LOCAL para ejercitar receptor y worker (pasos 6-7).
 -- Idempotente: si ya existe, rota credenciales al mismo valor conocido.
--- Secreto de webhook conocido SOLO para pruebas locales: whsec_prueba_1234567890
+-- Client secret conocido SOLO para pruebas locales: whsec_prueba_1234567890
+-- (firma webhooks Y mintearía el access_token — migración 007, Client
+-- Credentials grant; no hay mint real aquí porque el dominio es ficticio).
 --
 -- Uso:
 --   docker exec -i supabase_db_StoreSync psql -U postgres -d postgres \
@@ -18,7 +20,7 @@ begin
   perform create_shop_with_secrets(
     v_artist,
     'prueba-local.myshopify.com',
-    'shpat_token_prueba_local',
+    'client_id_prueba_local',
     'whsec_prueba_1234567890',
     '77777777777',
     true);

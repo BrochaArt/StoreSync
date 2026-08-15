@@ -1,8 +1,11 @@
-// Alta de tienda (guía §2.2 + Decisiones 2). Bloqueante: si un requisito
-// falla, se reportan TODAS las fallas y no se persiste nada.
+// Alta de tienda (guía §2.2 + Decisiones 2 + migración 007). Bloqueante: si un
+// requisito falla, se reportan TODAS las fallas y no se persiste nada.
 //
-// Secretos SOLO por variables de entorno (no quedan en historial del shell):
-//   SHOPIFY_ADMIN_TOKEN=shpat_...  SHOPIFY_WEBHOOK_SECRET=...
+// Credenciales de la app del Dev Dashboard de ESA tienda (Client Credentials
+// grant — Shopify retiró las Custom Apps clásicas el 1-ene-2026). Client ID
+// y Secret están en Settings → Credentials de la app. SOLO por variables de
+// entorno (no quedan en historial del shell):
+//   SHOPIFY_CLIENT_ID=...  SHOPIFY_CLIENT_SECRET=...
 //
 // Uso:
 //   npm run onboard -- --shop-domain artista.myshopify.com --location-id 123456 \
@@ -29,12 +32,12 @@ const { values } = parseArgs({
 
 const shopDomain = values["shop-domain"];
 const locationId = values["location-id"];
-const accessToken = process.env["SHOPIFY_ADMIN_TOKEN"];
-const webhookSecret = process.env["SHOPIFY_WEBHOOK_SECRET"];
+const clientId = process.env["SHOPIFY_CLIENT_ID"];
+const clientSecret = process.env["SHOPIFY_CLIENT_SECRET"];
 
-if (!shopDomain || !locationId || !accessToken || !webhookSecret) {
+if (!shopDomain || !locationId || !clientId || !clientSecret) {
   console.error(
-    "Faltan datos: requiere --shop-domain, --location-id y las env vars SHOPIFY_ADMIN_TOKEN / SHOPIFY_WEBHOOK_SECRET.",
+    "Faltan datos: requiere --shop-domain, --location-id y las env vars SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET.",
   );
   process.exit(2);
 }
@@ -66,8 +69,8 @@ try {
     artistId,
     shopDomain,
     locationId,
-    accessToken,
-    webhookSecret,
+    clientId,
+    clientSecret,
   });
   console.log(
     r.created
