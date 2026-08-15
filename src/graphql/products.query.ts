@@ -5,6 +5,11 @@
 // (INVENTORY_BATCH_QUERY); el inventoryQuantity del §5.2 es el agregado de
 // todas las locations y no sirve para inventory_levels(variant, location).
 
+// Campos estándar del catálogo. Solo se piden campos que existen igual en
+// CUALQUIER tienda Shopify: el gateway sirve a varios artistas con un mismo
+// contrato, así que nada de convenciones de una tienda concreta.
+// selectedOptions es el único lugar estándar donde vive el tamaño cuando un
+// producto se vende en varias medidas.
 export const PRODUCTS_PAGE_QUERY = /* GraphQL */ `
   query ProductsPage($cursor: String, $pageSize: Int!) {
     products(first: $pageSize, after: $cursor) {
@@ -18,6 +23,29 @@ export const PRODUCTS_PAGE_QUERY = /* GraphQL */ `
         handle
         descriptionHtml
         status
+        vendor
+        productType
+        tags
+        category {
+          id
+          name
+          fullName
+        }
+        collections(first: 20) {
+          nodes {
+            id
+            title
+            handle
+          }
+        }
+        metafields(first: 25) {
+          nodes {
+            namespace
+            key
+            type
+            value
+          }
+        }
         featuredImage {
           url
           altText
@@ -36,8 +64,13 @@ export const PRODUCTS_PAGE_QUERY = /* GraphQL */ `
           }
           nodes {
             id
+            title
             sku
             price
+            selectedOptions {
+              name
+              value
+            }
             inventoryItem {
               id
             }
@@ -50,8 +83,10 @@ export const PRODUCTS_PAGE_QUERY = /* GraphQL */ `
 
 export interface VariantNode {
   id: string;
+  title: string | null;
   sku: string | null;
   price: string | null;
+  selectedOptions: Array<{ name: string; value: string }>;
   inventoryItem: { id: string };
 }
 
@@ -61,6 +96,14 @@ export interface ProductNode {
   handle: string | null;
   descriptionHtml: string | null;
   status: string | null;
+  vendor: string | null;
+  productType: string | null;
+  tags: string[] | null;
+  category: { id: string; name: string; fullName: string } | null;
+  collections: { nodes: Array<{ id: string; title: string; handle: string }> };
+  metafields: {
+    nodes: Array<{ namespace: string; key: string; type: string; value: string }>;
+  };
   featuredImage: { url: string; altText: string | null } | null;
   images: { nodes: Array<{ id: string; url: string; altText: string | null }> };
   variants: {
@@ -87,8 +130,13 @@ export const EXTRA_VARIANTS_QUERY = /* GraphQL */ `
         }
         nodes {
           id
+          title
           sku
           price
+          selectedOptions {
+            name
+            value
+          }
           inventoryItem {
             id
           }

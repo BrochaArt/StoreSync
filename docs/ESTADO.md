@@ -4,6 +4,66 @@
 > `Shopify_Supabase_Sync_Dev_Guide.docx` + `DECISIONES_TECNICAS_SYNC.md`
 > (las decisiones SIEMPRE ganan ante contradicción).
 
+## Campos estándar en el catálogo (Decisión 7) — DESPLEGADO Y VERIFICADO (2026-08-13)
+
+Ampliación del contrato del gateway a pedido del consumidor (artista, categoría,
+detalles). Auditado contra el catálogo real: 205 productos, ver Decisión 7 para qué se
+rechazó y por qué.
+
+**Estado:** `db push` aplicó 007–010 (la 007 y la 008 estaban vivas en cloud pero sin
+registrar en el historial: se re-aplicaron como no-op y quedaron registradas).
+Import completo: 205/205 productos, 278 variantes, 991 imágenes, perfil del artista y
+12 definiciones de metafield. Sin advertencias.
+
+Verificado contra el endpoint en vivo (100 productos): `shop.artist` completo,
+100/100 con taxonomía y `collections`, 89/100 con `details`, 38/100 con opción de
+variante distinta de `Title`, paginación por cursor OK y ningún metafield interno de
+Shopify colado en `details`.
+
+**`011_atributos_canonicos.sql` (aplicada y verificada):** sube `artist`,
+`artist_email` y `category` a parámetros del producto; `category` pasa a ser la de
+negocio (desde `custom.category`) y la taxonomía de Shopify se mueve a
+`shopify_taxonomy`. Ver Decisión 7b. Hoy `category` sale `null` en toda la tienda:
+se llena cuando se corra el backfill de metafields.
+
+**Backfill de la tienda especial — EJECUTADO (2026-08-14):** los atributos que vivían
+en prosa dentro de `description_html` se pasaron a metafields estándar en el Shopify de
+la artista, vía `metafieldsSet` (nunca import por CSV, que actualiza el producto entero
+por handle). Se crearon 4 definiciones —`custom.category` "Categoría" con lista de
+opciones fija, `custom.size` "Tamaño", `custom.year` "Año", `custom.technique` "Técnica"—
+y se escribieron **477/477 metafields sobre 205 productos, sin errores**. Prueba previa
+sobre 2 productos, verificada leyendo de vuelta.
+
+Estado tras reimportar, medido sobre la respuesta del API:
+
+| | antes | después |
+|---|---|---|
+| `category` con valor | 0/205 | **205/205** |
+| tamaño como parámetro | 0/205 | **103** en `details` + 73 en opción de variante = 176 |
+| año | 0/205 | **66** (los 37 canvas impresos no tienen: el año es de la obra original) |
+| técnica | 0/205 | **103** |
+
+Los 29 digitales quedan solo con `category` — son enlaces a NFT, sin atributos físicos.
+
+El mapa colección→categoría usado para sembrar los valores vivió en un script
+desechable fuera del repo; el pipeline sigue sin una línea específica de esta tienda.
+
+| Archivo | Qué hace |
+|---|---|
+| `009_campos_estandar.sql` | `products`: vendor, product_type, tags, taxonomy_category, collections, metafields · `variants`: title, options · `shops`: perfil del artista + `metafield_definitions` |
+| `010_api_get_catalog_v2.sql` | `create or replace api_get_catalog`: agrega `shop.artist`, los campos crudos, `details` y `variants[].options`. Aditivo — el consumidor actual no se rompe |
+| `src/graphql/shop.query.ts` | `shop { name contactEmail url description }` + definiciones de metafields (la etiqueta legible de cada `details`) |
+| `src/services/shop-profile.ts` | Sincroniza el perfil a `shops`; lo llama el import |
+| `products.query.ts`, `catalog-source.ts`, `repositories/catalog.ts` | Piden y persisten los campos nuevos |
+| `worker-sync/handlers.ts` | Camino webhook: vendor/product_type/tags (CSV) y `option1..3` → `options`. Omite collections/metafields (no vienen en REST) para no borrarlos |
+
+Para aplicarlo:
+
+```bash
+supabase db push                                    # 009 + 010
+npm run import-catalog -- --shop-id <uuid>          # idempotente: rellena lo nuevo
+```
+
 ## Qué se construyó (todo verificado en local)
 
 | Paso | Entregable | Verificación |

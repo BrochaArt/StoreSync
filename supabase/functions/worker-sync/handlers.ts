@@ -18,11 +18,24 @@ interface ProductPayload {
   handle?: string;
   body_html?: string;
   status?: string;
+  // Campos estándar (forma REST): tags llega como CSV, y las opciones de
+  // variante como option1/2/3 + los nombres a nivel producto.
+  // OJO: el payload REST NO trae collections, metafields ni la categoría de
+  // taxonomía. Esas columnas se omiten en el upsert para no borrarlas — solo
+  // el import inicial las refresca (ver 009).
+  vendor?: string | null;
+  product_type?: string | null;
+  tags?: string | null;
+  options?: Array<{ name?: string; position?: number }>;
   variants?: Array<{
     id: number | string;
+    title?: string | null;
     sku?: string | null;
     price?: string | number | null;
     inventory_item_id?: number | string;
+    option1?: string | null;
+    option2?: string | null;
+    option3?: string | null;
   }>;
   images?: Array<{
     id?: number | string;
@@ -69,40 +82,66 @@ function must<T>(v: T | null | undefined, msg: string): T {
   return v;
 }
 
+/** "Acrylic, Oil" -> ["Acrylic","Oil"]. Shopify manda los tags como CSV. */
+function parseTags(csv: string | null | undefined): string[] {
+  if (!csv) return [];
+  return csv
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
 async function productUpsert(
   supabase: SupabaseClient,
   shopId: string,
   p: ProductPayload,
 ): Promise<HandlerDetail> {
   const nowIso = new Date().toISOString();
+
+  const fila: Record<string, unknown> = {
+    shop_id: shopId,
+    shopify_product_id: String(p.id),
+    title: p.title ?? null,
+    handle: p.handle ?? null,
+    description_html: p.body_html ?? null,
+    status: p.status?.toLowerCase() ?? null,
+    deleted_at: null, // un update de Shopify revive un soft-delete previo
+    updated_at: nowIso,
+  };
+  // Solo se escriben si el payload trae la clave: un webhook que la omita no
+  // debe dejar el campo en null (el upsert ignora las columnas ausentes).
+  if (p.vendor !== undefined) fila.vendor = p.vendor?.trim() || null;
+  if (p.product_type !== undefined) fila.product_type = p.product_type?.trim() || null;
+  if (p.tags !== undefined) fila.tags = parseTags(p.tags);
+
   const { data: prod, error } = await supabase
     .from("products")
-    .upsert(
-      {
-        shop_id: shopId,
-        shopify_product_id: String(p.id),
-        title: p.title ?? null,
-        handle: p.handle ?? null,
-        description_html: p.body_html ?? null,
-        status: p.status?.toLowerCase() ?? null,
-        deleted_at: null, // un update de Shopify revive un soft-delete previo
-        updated_at: nowIso,
-      },
-      { onConflict: "shop_id,shopify_product_id" },
-    )
+    .upsert(fila, { onConflict: "shop_id,shopify_product_id" })
     .select("id")
     .single();
   if (error || !prod) throw new Error(`upsert product: ${error?.message ?? "sin fila"}`);
 
   if (p.variants && p.variants.length > 0) {
+    // Los nombres de opción viven a nivel producto y las variantes traen los
+    // valores en option1/2/3: se emparejan por posición.
+    const nombresOpcion = [...(p.options ?? [])]
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map((o) => o.name?.trim() ?? "");
+
     const rows = p.variants
       .filter((v) => v.inventory_item_id !== undefined && v.inventory_item_id !== null)
       .map((v) => ({
         product_id: prod.id,
         shopify_variant_id: String(v.id),
         inventory_item_id: String(v.inventory_item_id),
+        title: v.title ?? null,
         sku: v.sku ?? null,
         price: v.price ?? null,
+        options: [v.option1, v.option2, v.option3]
+          .map((valor, i) => ({ name: nombresOpcion[i] || `Option ${i + 1}`, value: valor }))
+          .filter((o): o is { name: string; value: string } =>
+            typeof o.value === "string" && o.value.length > 0
+          ),
       }));
     if (rows.length > 0) {
       const { error: vErr } = await supabase

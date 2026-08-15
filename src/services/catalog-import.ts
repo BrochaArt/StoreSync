@@ -12,7 +12,8 @@ import {
 import type { ShopCredentials } from "../types/index.js";
 import { PaginatedCatalogSource, type CatalogSource } from "./catalog-source.js";
 import { toGid } from "./gid.js";
-import { shopifyGraphql } from "./shopify-client.js";
+import { mintAccessToken, shopifyGraphql } from "./shopify-client.js";
+import { syncShopProfile } from "./shop-profile.js";
 import { upsertProductoImportado } from "../repositories/catalog.js";
 
 export interface ImportSummary {
@@ -21,6 +22,8 @@ export interface ImportSummary {
   imagenes: number;
   inventariosEscritos: number;
   productosEnShopify: number | null;
+  /** Perfil del artista refrescado desde shop { } — null si no se pudo */
+  perfil: { nombre: string | null; email: string | null; definiciones: number } | null;
   advertencias: string[];
 }
 
@@ -50,15 +53,42 @@ export async function importCatalog(
     throw new Error(`Sin credenciales para ${shopId}: ${credsErr?.message ?? "sin fila"}`);
   }
 
-  const src = source ?? new PaginatedCatalogSource(creds.shop_domain, creds.access_token);
+  // Un solo mint para toda la corrida (válido 24h — de sobra para un import
+  // completo, incluso de catálogos grandes). Nada de caché: la próxima
+  // corrida mintea el suyo.
+  const { accessToken } = await mintAccessToken({
+    shopDomain: creds.shop_domain,
+    clientId: creds.client_id,
+    clientSecret: creds.client_secret,
+  });
+
+  const src = source ?? new PaginatedCatalogSource(creds.shop_domain, accessToken);
   const summary: ImportSummary = {
     productos: 0,
     variantes: 0,
     imagenes: 0,
     inventariosEscritos: 0,
     productosEnShopify: null,
+    perfil: null,
     advertencias: [],
   };
+
+  // Perfil del artista (nombre, email, web, bio) + etiquetas de metafields.
+  // Si falla no se aborta el import: el catálogo es el trabajo principal y el
+  // perfil se vuelve a intentar en la próxima corrida.
+  try {
+    const perfil = await syncShopProfile(supabase, shopId, creds.shop_domain, accessToken);
+    summary.perfil = {
+      nombre: perfil.shopName,
+      email: perfil.contactEmail,
+      definiciones: Object.keys(perfil.metafieldDefinitions).length,
+    };
+    if (!perfil.contactEmail) {
+      summary.advertencias.push("La tienda no expone contactEmail: artist.email saldrá null");
+    }
+  } catch (e) {
+    summary.advertencias.push(`No se pudo sincronizar el perfil: ${(e as Error).message}`);
+  }
 
   for await (const pagina of src.fetchCatalog()) {
     // Fase 1 (página): upsert de productos/variantes/imágenes + mapping
@@ -84,7 +114,7 @@ export async function importCatalog(
       const lote = items.slice(i, i + INVENTORY_BATCH);
       const data = await shopifyGraphql<InventoryBatchData>({
         shopDomain: creds.shop_domain,
-        accessToken: creds.access_token,
+        accessToken,
         query: INVENTORY_BATCH_QUERY,
         variables: {
           ids: lote.map((id) => toGid("InventoryItem", id)),
@@ -126,7 +156,7 @@ export async function importCatalog(
   try {
     const countData = await shopifyGraphql<ProductsCountData>({
       shopDomain: creds.shop_domain,
-      accessToken: creds.access_token,
+      accessToken,
       query: PRODUCTS_COUNT_QUERY,
     });
     summary.productosEnShopify = countData.productsCount?.count ?? null;

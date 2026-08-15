@@ -35,6 +35,12 @@ try {
   console.log(`  variantes:   ${s.variantes}`);
   console.log(`  imágenes:    ${s.imagenes}`);
   console.log(`  inventarios: ${s.inventariosEscritos}`);
+  if (s.perfil) {
+    console.log(
+      `  perfil:      ${s.perfil.nombre ?? "(sin nombre)"} <${s.perfil.email ?? "sin email"}>` +
+        `, ${s.perfil.definiciones} definiciones de metafield`,
+    );
+  }
   for (const a of s.advertencias) console.warn(`  ⚠ ${a}`);
   if (s.advertencias.length === 0) {
     console.log("  sin advertencias — mapping completo, listo para registrar webhooks (§12.2)");

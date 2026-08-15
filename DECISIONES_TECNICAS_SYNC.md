@@ -282,6 +282,73 @@ LeadGods podrá consumir por polling del gateway o suscripción Realtime a esa t
 
 ---
 
+## DECISIÓN 7 — El catálogo expone SOLO campos estándar de Shopify
+
+El gateway sirve a varios artistas con **un único contrato**. Por lo tanto solo se
+sincroniza y expone lo que existe igual en cualquier tienda Shopify:
+
+| Expuesto | Origen |
+|---|---|
+| `vendor`, `product_type`, `tags` | campos estándar del producto, **sin interpretar** |
+| `category` | taxonomía global de Shopify (`product.category`), `null` si no está asignada |
+| `collections` | conexión estándar, con `id/title/handle` |
+| `details` | metafields del producto + `name` de su definición como etiqueta |
+| `variants[].options` | `selectedOptions` — donde vive el tamaño si el producto se vende en varias medidas |
+| `shop.artist` | `shop { name contactEmail url description }` |
+
+**Rechazado explícitamente** (evaluado contra un catálogo real de 205 productos):
+
+1. **Mapear nombres de colección a categorías de negocio.** En la tienda auditada
+   las colecciones particionaban perfecto (0 solapamientos): `Collect original
+   paintings`→original, `Posters`/`Canvas`→réplica. Aun así es config de UNA tienda:
+   el siguiente artista nombra sus colecciones distinto y el gateway devolvería
+   categorías vacías o equivocadas, sin fallar. `product_type` tampoco sirve —
+   decía "Obra" en 73 productos habiendo 110 réplicas.
+2. **Parsear `description_html`.** El 50 % de ese catálogo tenía técnica, año y
+   medidas en prosa con formato constante (`Acrylic on canvas, 2023` /
+   `(100cm x 70cm)`), extraíble con dos regex. Es la convención de esa artista, no
+   de Shopify. Además el texto venía con erratas reales (`3.14"` por 31.4",
+   decimales con coma, comillas sueltas) que solo se detectan conociendo la tienda.
+
+**Consecuencia aceptada:** si un dato solo existe en la descripción, **no se
+entrega**. La vía para estructurarlo no es código sino que el artista lo cargue como
+metafield o como opción de variante — se hace una vez por tienda y funciona para
+todos. Lo mismo aplica a `category`: si la tienda no la asignó, va `null`.
+
+**Frescura:** `collections`, `metafields` y la taxonomía NO viajan en el payload REST
+de `products/update`, así que solo los refresca el import completo. El upsert del
+worker omite esas columnas para no borrarlas con cada webhook.
+
+### 7b — Atributos canónicos: la convención la publicamos nosotros (mig. 011)
+
+"Solo estándar" no obliga a que el estándar sea de Shopify. Publicamos un mapa fijo,
+idéntico para toda tienda, y el artista lo llena:
+
+| Metafield del artista | Campo del API |
+|---|---|
+| `custom.category` (`Obra Original` · `Replica` · `Productos`) | `category` (nivel producto) |
+| `custom.size`, `custom.year`, `custom.technique`, y cualquier otro suyo | un ítem de `details` |
+
+`artist` y `artist_email` se repiten en cada producto además de en `shop.artist`: el
+consumidor guarda productos sueltos y cada uno debe bastarse solo.
+
+Esto **no** reabre lo rechazado en la Decisión 7. La diferencia está en la dirección:
+antes se proponía que NUESTRO código adivinara la categoría leyendo los nombres de
+colección de una tienda; ahora es el artista quien escribe el valor en un campo que
+nosotros definimos, igual para todos. Quien no lo llene recibe `null`.
+
+`category` pasó a ser la de negocio y la taxonomía global de Shopify se movió a
+`shopify_taxonomy` — renombre de un campo ya publicado, hecho el mismo día en que se
+entregó, porque la taxonomía devolvía "Arts & Entertainment" en los 205 productos y ese
+nombre le sirve más a la categoría que el consumidor realmente consulta.
+
+**Tiendas ya existentes:** cargar los metafields es una migración de datos EN la tienda
+del artista (script de una pasada con `metafieldsSet`, revisado antes por un humano),
+no código en el pipeline. El mapa colección→categoría que se usa para sembrarlos vive
+en ese script desechable, jamás en el gateway.
+
+---
+
 ## ⚠ VALIDACIÓN PENDIENTE (primera semana, tienda dev)
 
 `inventorySetQuantities` con `name: "available"` vs estados `on_hand` / `committed`:

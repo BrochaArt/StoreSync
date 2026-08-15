@@ -1,0 +1,157 @@
+{
+  "shop": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "domain": "demo.myshopify.com",
+    "name": "Demo Art Studio",
+    "artist": {
+      "name": "Artista Demo",
+      "email": "artista@example.com",
+      "website": "https://example.com",
+      "bio": "Artista de ejemplo. Datos sintéticos: esta muestra no contiene información de ninguna tienda real."
+    }
+  },
+  "pagination": {
+    "limit": 50,
+    "returned": 2,
+    "has_more": true,
+    "next_cursor": "00000000-0000-0000-0000-0000000000b2"
+  },
+  "products": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000b1",
+      "shopify_product_id": "1111111111111",
+      "title": "Obra de ejemplo",
+      "handle": "obra-de-ejemplo",
+      "description_html": "<p>Acrylic on canvas, 2024</p>\n<p>39\" x 27\" (100cm x 70cm)</p>",
+      "status": "active",
+      "updated_at": "2026-01-15T10:00:00+00:00",
+      "artist": "Artista Demo",
+      "artist_email": "artista@example.com",
+      "category": "Obra Original",
+      "vendor": "Demo Studio",
+      "product_type": "Obra",
+      "tags": ["Acrylic"],
+      "shopify_taxonomy": {
+        "id": "aa-1",
+        "name": "Artwork",
+        "full_name": "Arts & Entertainment > Artwork"
+      },
+      "collections": [
+        { "id": "2222222222", "title": "Originales", "handle": "originales" }
+      ],
+      "details": [
+        {
+          "key": "custom.size",
+          "label": "Tamaño",
+          "type": "single_line_text_field",
+          "value": "100cm x 70cm"
+        },
+        {
+          "key": "custom.year",
+          "label": "Año",
+          "type": "single_line_text_field",
+          "value": "2024"
+        },
+        {
+          "key": "custom.technique",
+          "label": "Técnica",
+          "type": "single_line_text_field",
+          "value": "Acrylic on canvas"
+        },
+        {
+          "key": "custom.shipping",
+          "label": "Shipping",
+          "type": "multi_line_text_field",
+          "value": "Se despacha en 2-5 días hábiles."
+        }
+      ],
+      "images": [
+        {
+          "id": "00000000-0000-0000-0000-0000000000c1",
+          "shopify_image_id": null,
+          "url": "https://cdn.example.com/obra-de-ejemplo.jpg",
+          "alt_text": null,
+          "position": 0
+        }
+      ],
+      "variants": [
+        {
+          "id": "00000000-0000-0000-0000-0000000000d1",
+          "shopify_variant_id": "3333333333",
+          "title": "Default Title",
+          "sku": null,
+          "price": 1200,
+          "options": [{ "name": "Title", "value": "Default Title" }],
+          "inventory": [
+            {
+              "location_id": "44444444",
+              "available": 1,
+              "updated_at": "2026-01-15T10:00:05+00:00"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000b2",
+      "shopify_product_id": "1111111111112",
+      "title": "Póster de ejemplo",
+      "handle": "poster-de-ejemplo",
+      "description_html": "<p><strong>Material:</strong> Papel fotográfico</p>",
+      "status": "active",
+      "updated_at": "2026-01-15T10:01:00+00:00",
+      "artist": "Artista Demo",
+      "artist_email": "artista@example.com",
+      "category": "Replica",
+      "vendor": "Demo Studio",
+      "product_type": "Poster",
+      "tags": [],
+      "shopify_taxonomy": null,
+      "collections": [
+        { "id": "2222222223", "title": "Posters", "handle": "posters" }
+      ],
+      "details": [],
+      "images": [
+        {
+          "id": "00000000-0000-0000-0000-0000000000c2",
+          "shopify_image_id": "5555555555",
+          "url": "https://cdn.example.com/poster-de-ejemplo.jpg",
+          "alt_text": "",
+          "position": 0
+        }
+      ],
+      "variants": [
+        {
+          "id": "00000000-0000-0000-0000-0000000000d2",
+          "shopify_variant_id": "3333333334",
+          "title": "30 x 40",
+          "sku": null,
+          "price": 20,
+          "options": [{ "name": "Size", "value": "30 x 40" }],
+          "inventory": [
+            {
+              "location_id": "44444444",
+              "available": 100,
+              "updated_at": "2026-01-15T10:01:05+00:00"
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-0000-0000-0000000000d3",
+          "shopify_variant_id": "3333333335",
+          "title": "50 x 70",
+          "sku": null,
+          "price": 35,
+          "options": [{ "name": "Size", "value": "50 x 70" }],
+          "inventory": [
+            {
+              "location_id": "44444444",
+              "available": 100,
+              "updated_at": "2026-01-15T10:01:05+00:00"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

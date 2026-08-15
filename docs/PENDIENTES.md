@@ -45,3 +45,20 @@ a `media(first:){ ... on MediaImage }`).
 
 Hoy "alertar" = fila en `sync_events` (status `dead_letter`) + log. Falta decidir el
 canal real de alerta (email/Slack/otro) — no cubierto por los documentos.
+
+## 6. Frescura de `collections`, `metafields` y `category` (Decisión 7)
+
+El payload REST de `products/update` no trae ninguno de los tres, así que el worker
+no puede refrescarlos: solo los actualiza el import completo. Si el artista mueve un
+producto de colección o edita un metafield, el gateway sigue sirviendo el valor viejo
+hasta el próximo import. Decidir el mecanismo: re-import periódico por cron,
+suscripción a `collections/update` (solo resuelve colecciones), o aceptar la deriva y
+documentarla al consumidor.
+
+## 7. Datos que el artista debe cargar en Shopify para que viajen estructurados
+
+Consecuencia directa de la Decisión 7: tamaño, año y técnica de las obras solo existen
+como texto en la descripción, así que no salen en `details`. Para exponerlos hay que
+pedirle al artista que los cargue como metafields con definición (o como opción de
+variante, si el producto tiene varias medidas). Es trabajo de configuración por tienda,
+una sola vez, y a partir de ahí el mismo contrato lo entrega para todos los artistas.

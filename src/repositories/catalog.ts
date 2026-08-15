@@ -28,6 +28,14 @@ export async function upsertProductoImportado(
         handle: p.handle,
         description_html: p.descriptionHtml,
         status: p.status,
+        vendor: p.vendor,
+        product_type: p.productType,
+        tags: p.tags,
+        taxonomy_category: p.category,
+        // collections y metafields NO viajan en el webhook REST: el import
+        // inicial es el único que los refresca (ver 009).
+        collections: p.collections,
+        metafields: p.metafields,
         deleted_at: null,
         updated_at: nowIso,
       },
@@ -45,8 +53,10 @@ export async function upsertProductoImportado(
       product_id: prod.id,
       shopify_variant_id: v.shopifyVariantId,
       inventory_item_id: v.inventoryItemId,
+      title: v.title,
       sku: v.sku,
       price: v.price,
+      options: v.options,
     }));
     const { data: variants, error: vErr } = await supabase
       .from("variants")
