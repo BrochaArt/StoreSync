@@ -29,6 +29,13 @@
       "artist": "Artista Demo",
       "artist_email": "artista@example.com",
       "category": "Obra Original",
+      "size": "100cm x 70cm",
+      "year": "2024",
+      "technique": "Acrylic on canvas",
+      "material": null,
+      "paper_type": null,
+      "additional_info": null,
+      "nft_link": null,
       "vendor": "Demo Studio",
       "product_type": "Obra",
       "tags": [
@@ -47,6 +54,12 @@
         }
       ],
       "details": [
+        {
+          "key": "custom.category",
+          "label": "Categoría",
+          "type": "single_line_text_field",
+          "value": "Obra Original"
+        },
         {
           "key": "custom.size",
           "label": "Tamaño",
@@ -116,6 +129,13 @@
       "artist": "Artista Demo",
       "artist_email": "artista@example.com",
       "category": "Replica",
+      "size": null,
+      "year": null,
+      "technique": null,
+      "material": "Impresión sobre papel",
+      "paper_type": "Papel fotográfico",
+      "additional_info": "Encaja en marcos estándar. El marco no está incluido.",
+      "nft_link": null,
       "vendor": "Demo Studio",
       "product_type": "Poster",
       "tags": [],
@@ -127,7 +147,26 @@
           "handle": "posters"
         }
       ],
-      "details": [],
+      "details": [
+        {
+          "key": "custom.material",
+          "label": "Material",
+          "type": "multi_line_text_field",
+          "value": "Impresión sobre papel"
+        },
+        {
+          "key": "custom.paper_type",
+          "label": "Tipo de papel",
+          "type": "multi_line_text_field",
+          "value": "Papel fotográfico"
+        },
+        {
+          "key": "custom.additional_info",
+          "label": "Información adicional",
+          "type": "multi_line_text_field",
+          "value": "Encaja en marcos estándar. El marco no está incluido."
+        }
+      ],
       "images": [
         {
           "id": "00000000-0000-0000-0000-0000000000c2",

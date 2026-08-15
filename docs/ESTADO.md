@@ -53,6 +53,16 @@ hay dos productos con la técnica y la medida en negrita que habrían generado
 metafields basura. 309 metafields sobre 127 productos, sin errores. Resultado:
 194/205 productos con al menos un detalle, promedio de 4 por producto.
 
+**`014` — los atributos suben al nivel del producto:** hasta la 013 lo extraído
+viajaba solo dentro de `details[]`, o sea que para leer el tamaño había que recorrer
+un arreglo buscando la clave. Ahora `size`, `year`, `technique`, `material`,
+`paper_type`, `additional_info` y `nft_link` son campos propios (`producto.size`),
+alimentados por `custom.<clave>` según la convención publicada. `details[]` se
+mantiene completo —incluidos esos y `category`, cuya excepción se eliminó— porque es
+la forma que pidió el consumidor para pintar la ficha. Con valor sobre 205 productos:
+category 205, material 109, información adicional 109, tamaño 103, técnica 103, tipo
+de papel 73, año 66, enlace NFT 18.
+
 **`012` + `013` — `description_text`:** campo nuevo con la descripción en texto plano.
 Se calcula al LEER (`html_a_texto`), no al escribir, porque la descripción entra por
 dos caminos (import GraphQL y webhook REST) y hacerlo al escribir obligaría a mantener
