@@ -8,6 +8,11 @@ dist/
 .env.*
 !.env.example
 
+# Entregas a consumidores del API: llevan la API key en texto plano junto al
+# shop_id y el dominio real de la tienda. Se comparten por fuera del repo.
+# Si emites una key nueva, el documento de entrega también va acá.
+docs/api-gateway-handoff.md
+
 # Supabase local
 supabase/.temp/
 supabase/.branches/
