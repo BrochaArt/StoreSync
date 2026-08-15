@@ -60,8 +60,14 @@ un arreglo buscando la clave. Ahora `size`, `year`, `technique`, `material`,
 alimentados por `custom.<clave>` según la convención publicada. `details[]` se
 mantiene completo —incluidos esos y `category`, cuya excepción se eliminó— porque es
 la forma que pidió el consumidor para pintar la ficha. Con valor sobre 205 productos:
-category 205, material 109, información adicional 109, tamaño 103, técnica 103, tipo
-de papel 73, año 66, enlace NFT 18.
+category 205, información adicional 109, tamaño 103, técnica 103, tipo de papel 73,
+año 66, material 36, enlace NFT 18.
+
+`custom.material` se borró de los 73 posters (`metafieldsDelete`): el valor era el
+texto de marketing que la artista había archivado bajo esa etiqueta ("This art print
+displays sharp, vivid images…"), no un material. Queda solo en los 36 canvas, donde
+dice "Stretched canvas print". Los posters conservan `paper_type` y `additional_info`,
+que sí son correctos.
 
 **`012` + `013` — `description_text`:** campo nuevo con la descripción en texto plano.
 Se calcula al LEER (`html_a_texto`), no al escribir, porque la descripción entra por
