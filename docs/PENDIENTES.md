@@ -62,3 +62,16 @@ como texto en la descripción, así que no salen en `details`. Para exponerlos h
 pedirle al artista que los cargue como metafields con definición (o como opción de
 variante, si el producto tiene varias medidas). Es trabajo de configuración por tienda,
 una sola vez, y a partir de ahí el mismo contrato lo entrega para todos los artistas.
+
+## 8. Scope de fulfillment ausente en las apps de las tiendas
+
+`FULFILLMENTS_UPDATE` no se puede registrar: las apps tienen 7 scopes (read/write de
+products, inventory y orders, más read_locations) y ninguno de fulfillment. Pasa en las
+dos tiendas dadas de alta, así que el handler de fulfillments del worker nunca se
+ejecuta y `orders.fulfillment_status` no se actualiza por esa vía.
+
+Impacto hoy: nulo para el consumidor, porque el gateway solo expone catálogo. Para
+cerrarlo hay que pedirle a cada artista que agregue el scope a su app en el Dev
+Dashboard y volver a correr `register-webhooks`. Decidir si vale la pena o si se saca
+`FULFILLMENTS_UPDATE` de `WEBHOOK_TOPICS` mientras tanto, para que el registro no
+reporte una falla esperada en cada alta.

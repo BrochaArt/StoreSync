@@ -94,6 +94,40 @@ supabase db push                                    # 009 + 010
 npm run import-catalog -- --shop-id <uuid>          # idempotente: rellena lo nuevo
 ```
 
+## Segunda tienda dada de alta (2026-08-19)
+
+Alta + import completos con el mismo pipeline, sin una línea de código específica:
+183 productos (Shopify reporta 183), 583 variantes, 748 imágenes, 495 niveles de
+inventario. 88 variantes quedaron sin nivel en la location primaria y el import las
+reporta en vez de inventarles un número.
+
+**La location se eligió midiendo, no por el nombre.** La tienda tiene dos activas y la
+que parecía la principal por su nombre no tenía un solo nivel de inventario; toda la
+existencia estaba en la otra. `list-locations` ahora muestrea 50 variantes y consulta
+el `available` en cada location para decidirlo — elegir mal habría importado el
+catálogo completo con todo en cero, sin fallar en ninguna parte.
+
+**Los ocho atributos canónicos salen en cero:** ese artista no tiene metafields
+cargados. Lo que sí sirve de entrada es `product_type` (Print 91 · Ceramic 29 ·
+Resin sculpture 24 · 39 vacíos), que va crudo al consumidor. Confirma el diseño de la
+Decisión 7b: el contrato es idéntico y lo que no esté cargado sale null, sin que nadie
+toque el pipeline.
+
+**Su inventario no es stock real.** 462 de 583 variantes no tienen tracking. De las 121
+que sí, la mediana es 9999 y son camisetas en tallas S–5XL: el placeholder de
+"ilimitado" del print-on-demand. En esa tienda `available` no se puede leer como
+unidades disponibles, al revés que en la primera. Hay que advertírselo al consumidor.
+
+**Webhooks: 7 de 8 topics registrados.** `FULFILLMENTS_UPDATE` falla con "You cannot
+create a webhook subscription with the specified topic" porque la app no tiene ningún
+scope de fulfillment — y les pasa a LAS DOS tiendas, que comparten los mismos 7 scopes
+(read/write de products, inventory, orders + read_locations). Ver PENDIENTES #8.
+
+**La primera tienda tiene CERO webhooks registrados:** ese paso nunca se corrió. Su
+catálogo solo se refresca cuando alguien ejecuta el import a mano. `webhook_events`
+sigue en 0 filas en todo el proyecto, así que PENDIENTES #3 —verificar la forma de los
+payloads contra un webhook real— sigue sin poder cerrarse hasta que llegue el primero.
+
 ## Qué se construyó (todo verificado en local)
 
 | Paso | Entregable | Verificación |
