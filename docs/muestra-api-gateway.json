@@ -36,6 +36,8 @@
       "paper_type": null,
       "additional_info": null,
       "nft_link": null,
+      "shipping": "Worldwide free shipping",
+      "about_the_artwork": "Esta obra nace de un recuerdo de infancia y de la textura del lienzo sin imprimar.",
       "vendor": "Demo Studio",
       "product_type": "Obra",
       "tags": [
@@ -58,31 +60,43 @@
           "key": "custom.category",
           "label": "Categoría",
           "type": "single_line_text_field",
-          "value": "Obra Original"
+          "value": "Obra Original",
+          "value_text": "Obra Original"
         },
         {
           "key": "custom.size",
           "label": "Tamaño",
           "type": "single_line_text_field",
-          "value": "100cm x 70cm"
+          "value": "100cm x 70cm",
+          "value_text": "100cm x 70cm"
         },
         {
           "key": "custom.year",
           "label": "Año",
           "type": "single_line_text_field",
-          "value": "2024"
+          "value": "2024",
+          "value_text": "2024"
         },
         {
           "key": "custom.technique",
           "label": "Técnica",
           "type": "single_line_text_field",
-          "value": "Acrylic on canvas"
+          "value": "Acrylic on canvas",
+          "value_text": "Acrylic on canvas"
         },
         {
           "key": "custom.shipping",
           "label": "Shipping",
           "type": "multi_line_text_field",
-          "value": "Se despacha en 2-5 días hábiles."
+          "value": "Se despacha en 2-5 días hábiles.",
+          "value_text": "Se despacha en 2-5 días hábiles."
+        },
+        {
+          "key": "custom.about_the_artwork",
+          "label": "About the artwork",
+          "type": "rich_text_field",
+          "value": "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Esta obra nace de un recuerdo de infancia y de la textura del lienzo sin imprimar.\"}]}]}",
+          "value_text": "Esta obra nace de un recuerdo de infancia y de la textura del lienzo sin imprimar."
         }
       ],
       "images": [
@@ -136,6 +150,8 @@
       "paper_type": "Papel fotográfico",
       "additional_info": "Encaja en marcos estándar. El marco no está incluido.",
       "nft_link": null,
+      "shipping": "Worldwide shipping",
+      "about_the_artwork": null,
       "vendor": "Demo Studio",
       "product_type": "Poster",
       "tags": [],
@@ -152,19 +168,22 @@
           "key": "custom.material",
           "label": "Material",
           "type": "multi_line_text_field",
-          "value": "Impresión sobre papel"
+          "value": "Impresión sobre papel",
+          "value_text": "Impresión sobre papel"
         },
         {
           "key": "custom.paper_type",
           "label": "Tipo de papel",
           "type": "multi_line_text_field",
-          "value": "Papel fotográfico"
+          "value": "Papel fotográfico",
+          "value_text": "Papel fotográfico"
         },
         {
           "key": "custom.additional_info",
           "label": "Información adicional",
           "type": "multi_line_text_field",
-          "value": "Encaja en marcos estándar. El marco no está incluido."
+          "value": "Encaja en marcos estándar. El marco no está incluido.",
+          "value_text": "Encaja en marcos estándar. El marco no está incluido."
         }
       ],
       "images": [

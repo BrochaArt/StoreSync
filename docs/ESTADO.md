@@ -94,6 +94,33 @@ supabase db push                                    # 009 + 010
 npm run import-catalog -- --shop-id <uuid>          # idempotente: rellena lo nuevo
 ```
 
+## Los dos datos que faltaban en la ficha (2026-08-20)
+
+El consumidor reportó que en la ficha del producto faltaban el texto "About the
+artwork" y la nota "Worldwide free shipping". Cada uno faltaba por una razón distinta.
+
+**`about_the_artwork` sí se entregaba, pero ilegible.** Shopify guarda los
+`rich_text_field` como un árbol JSON, no como HTML, y ese blob viajaba crudo dentro de
+`details[]`. La 015 agrega `rich_text_plano` —recorre el árbol y devuelve texto, y si
+el valor no es JSON lo devuelve intacto, así que es seguro sobre cualquier metafield—.
+La 016 lo conecta al contrato de dos formas: `details[].value_text` (siempre legible,
+para rich text el árbol aplanado y para el resto el mismo `value`) y
+`about_the_artwork` como campo propio del producto. `value` crudo se conserva.
+
+**La nota de envío no existía como dato:** vivía suelta en la prosa de la descripción.
+Backfill de 102 metafields `custom.shipping`, respetando la distinción que hacía la
+artista: 66 obras dicen "Worldwide free shipping" y 36 dicen "Worldwide shipping", sin
+el "free". Los 73 productos que YA tenían `custom.shipping` con texto propio del
+artista ("We dispatch all orders within 2-5 business days") se saltaron sin tocarlos.
+30 productos no tienen frase de envío.
+
+Cobertura tras reimportar, sobre 205: category 205, shipping 175, tamaño 103,
+técnica 103, about_the_artwork 66, año 66.
+
+Nota de operación: `api_get_catalog` no se puede ejecutar desde el MCP de Supabase
+—devuelve 42501— porque el `grant execute` es solo para `service_role`. Es el
+comportamiento correcto; para verificarla hay que ir por un cliente service_role.
+
 ## Segunda tienda dada de alta (2026-08-19)
 
 Alta + import completos con el mismo pipeline, sin una línea de código específica:
