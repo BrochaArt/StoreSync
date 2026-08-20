@@ -8,7 +8,15 @@
 
 import { parseArgs } from "node:util";
 import { LOCATIONS_QUERY, type LocationsQueryData } from "../src/graphql/onboarding.queries.js";
-import { numericId } from "../src/services/gid.js";
+import {
+  INVENTORY_BATCH_QUERY,
+  type InventoryBatchData,
+} from "../src/graphql/products.query.js";
+import {
+  TRACKING_SAMPLE_QUERY,
+  type TrackingSampleData,
+} from "../src/graphql/onboarding.queries.js";
+import { numericId, toGid } from "../src/services/gid.js";
 import { mintAccessToken, ShopifyAuthError, shopifyGraphql } from "../src/services/shopify-client.js";
 
 try {
@@ -60,7 +68,60 @@ try {
     console.error("\n✖ Ninguna location activa: el onboarding va a bloquear el alta.");
     process.exit(1);
   } else {
-    console.log(`\n${activas.length} locations activas: elegir la primaria, la que despacha.`);
+    // Con varias activas, elegir mal es la falla silenciosa clásica: el import
+    // escribe inventario SOLO en la location elegida, así que la tienda
+    // aparecería sin stock. Se mide en vez de adivinar.
+    console.log(`\n${activas.length} locations activas. Midiendo dónde está el inventario…\n`);
+
+    const sample = await shopifyGraphql<TrackingSampleData>({
+      shopDomain,
+      accessToken,
+      query: TRACKING_SAMPLE_QUERY,
+    });
+    const items = sample.productVariants.nodes.map((v) => v.inventoryItem.id);
+
+    if (items.length === 0) {
+      console.log("  La tienda no tiene variantes: no hay inventario que medir.");
+    } else {
+      const filas: Array<{ id: string; name: string; conNivel: number; unidades: number }> = [];
+      for (const l of activas) {
+        const id = numericId(l.id);
+        const data = await shopifyGraphql<InventoryBatchData>({
+          shopDomain,
+          accessToken,
+          query: INVENTORY_BATCH_QUERY,
+          variables: { ids: items, locationId: toGid("Location", id) },
+        });
+        let conNivel = 0;
+        let unidades = 0;
+        for (const node of data.nodes) {
+          const q = node?.inventoryLevel?.quantities.find((x) => x.name === "available");
+          if (typeof q?.quantity !== "number") continue;
+          conNivel++;
+          unidades += q.quantity;
+        }
+        filas.push({ id, name: l.name, conNivel, unidades });
+      }
+
+      console.log(`  sobre ${items.length} variantes muestreadas:\n`);
+      for (const f of filas) {
+        console.log(
+          `  ${f.id.padEnd(14)} ${String(f.conNivel).padStart(3)}/${items.length} con nivel` +
+            `  ${String(f.unidades).padStart(6)} unidades   ${f.name}`,
+        );
+      }
+
+      const orden = [...filas].sort((a, b) => b.conNivel - a.conNivel || b.unidades - a.unidades);
+      const ganadora = orden[0]!;
+      const segunda = orden[1];
+      if (ganadora.conNivel === 0) {
+        console.log("\n  Ninguna tiene inventario en la muestra: preguntarle al artista cuál despacha.");
+      } else if (segunda && segunda.conNivel === ganadora.conNivel) {
+        console.log("\n  Empate: las dos tienen nivel para las mismas variantes. Decide el artista.");
+      } else {
+        console.log(`\n  Usar en el alta:  --location-id ${ganadora.id}   (${ganadora.name})`);
+      }
+    }
   }
 } catch (e) {
   if (e instanceof ShopifyAuthError) {
