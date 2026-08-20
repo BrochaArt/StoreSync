@@ -123,10 +123,21 @@ create a webhook subscription with the specified topic" porque la app no tiene n
 scope de fulfillment — y les pasa a LAS DOS tiendas, que comparten los mismos 7 scopes
 (read/write de products, inventory, orders + read_locations). Ver PENDIENTES #8.
 
-**La primera tienda tiene CERO webhooks registrados:** ese paso nunca se corrió. Su
-catálogo solo se refresca cuando alguien ejecuta el import a mano. `webhook_events`
-sigue en 0 filas en todo el proyecto, así que PENDIENTES #3 —verificar la forma de los
-payloads contra un webhook real— sigue sin poder cerrarse hasta que llegue el primero.
+**La primera tienda no tenía webhooks registrados** — ese paso nunca se había
+corrido desde julio, así que su catálogo solo se refrescaba con imports manuales. Se
+registraron los mismos 7 topics el 2026-08-19. Ahora las dos tiendas están en vivo.
+
+**Cadena de ingesta verificada de punta a punta menos el último eslabón:** el cron
+`drain-sync-jobs` está activo cada minuto, 120/120 corridas exitosas en las últimas dos
+horas, y —lo que de verdad importa— `net._http_response` muestra 200 en las 120, con
+`{"drenados":0,"procesados":0,"fallidos":0,"dead_letter":0}`. Vale la pena mirar esa
+tabla y no solo `cron.job_run_details`: pg_net es asíncrono, así que el cron reporta
+"succeeded" con solo encolar el POST, y un worker devolviendo 401 se vería igual de
+sano desde ahí.
+
+Lo único sin probar es la llegada de un webhook real: `webhook_events` sigue en 0 filas.
+Hasta que llegue el primero, PENDIENTES #3 —la forma de los payloads REST en 2026-07—
+no se puede cerrar.
 
 ## Qué se construyó (todo verificado en local)
 
