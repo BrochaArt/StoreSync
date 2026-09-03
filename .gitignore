@@ -12,6 +12,8 @@ dist/
 # shop_id y el dominio real de la tienda. Se comparten por fuera del repo.
 # Si emites una key nueva, el documento de entrega también va acá.
 docs/api-gateway-handoff.md
+# Mismo documento exportado: lleva la API key del consumidor en claro
+docs/StoreSync - Documentacion de integracion API.pdf
 
 # Supabase local
 supabase/.temp/
