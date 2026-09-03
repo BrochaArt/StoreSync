@@ -347,6 +347,38 @@ del artista (script de una pasada con `metafieldsSet`, revisado antes por un hum
 no código en el pipeline. El mapa colección→categoría que se usa para sembrarlos vive
 en ese script desechable, jamás en el gateway.
 
+### 7c — La premisa de la 7b falló, y aun así no derivamos (2026-09-02)
+
+La 7b dice "el artista lo llena". Con el segundo artista eso no ocurrió ni va a ocurrir:
+su tienda no tiene un solo metafield `custom`, y se confirmó que no va a cargarlos. O sea
+que el `null` que la 7b trataba como excepción es, para esa tienda, el estado permanente.
+
+Se evaluó derivar los atributos de lo que ya existe (descripciones, `product_type`,
+opciones de variante). **Se rechazó**, y esta vez con evidencia del catálogo real:
+
+- `technique`: 160 de 183 descripciones nombran una técnica, pero **68 nombran más de
+  una** ("grabado … en técnica giclee"). Elegir una sería moneda al aire en el 43 %.
+- `year`: 68 traen un año, **24 traen más de uno**, y hay falsos positivos demostrables.
+  El que zanjó la discusión: *"La esfera de nieve en Ciudadano Kane (1941)…"* — ese año
+  es el de la película. Publicarlo habría fechado la obra de un artista en 1941.
+
+Un campo vacío se ve incompleto; un dato inventado se ve creíble y está mal. Sobre obra
+ajena, y en un perfil público, eso no es un defecto cosmético.
+
+`category` sí era derivable sin ambigüedad desde `product_type` (144/183, dato
+estructurado). **Tampoco se hizo**, por una razón distinta: el consumidor **muestra cada
+artista por separado**, no una vitrina común, así que no necesita un vocabulario
+compartido — `product_type` crudo pinta el perfil igual de bien. Normalizar habría
+costado un mapa por tienda, mantenido para siempre, sin nadie que lo consumiera.
+
+**La regla que queda:** la uniformidad está en el mecanismo, no en la lista de campos.
+Cada artista entrega lo suyo con su propio vocabulario; lo que no tenga viaja con la
+clave presente y valor `null`. Si algún día el consumidor pide una vitrina común, esto
+se reabre — y ahí la respuesta es el mapa por tienda, no la adivinanza desde prosa.
+
+Queda en el repo `scripts/create-metafield-definitions.ts` (modo plan por defecto, sin
+ejecutar contra ninguna tienda) para el día que un artista sí quiera cargar los suyos.
+
 ---
 
 ## ⚠ VALIDACIÓN PENDIENTE (primera semana, tienda dev)

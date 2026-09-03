@@ -230,19 +230,194 @@ Proyecto `fgrpclxpjciosvjzbefo` (org `ybjvneingmxwkrbvomqo`), CLI enlazada.
   correr los scripts contra el cloud: `cp .env.cloud .env` (volver a local:
   regenerar desde `supabase status -o env`).
 
-## SIGUIENTE PASO EXACTO (próxima sesión)
+## No se normalizan los atributos entre artistas — decidido (2026-09-02)
 
-1. **Alta de la tienda dev real** (valida los 6 requisitos §2.2 y bloquea si algo falla):
-   ```bash
-   cp .env.cloud .env
-   SHOPIFY_ADMIN_TOKEN=shpat_... SHOPIFY_WEBHOOK_SECRET=... npm run onboard -- \
-     --shop-domain <tienda>.myshopify.com --location-id <id> --artist-name "<Artista>"
-   ```
-2. **Import inicial**: `npm run import-catalog -- --shop-id <uuid>` (verifica completitud).
-3. **Webhooks en vivo** (solo tras import — BUILD ORDER):
-   `npm run register-webhooks -- --shop-id <uuid> --callback-url https://fgrpclxpjciosvjzbefo.supabase.co/functions/v1/webhook`
-4. **Checklist §13** con la tienda real: #1–#4 y #7 (inbound); documentar PENDIENTES #1 y #3.
-5. Con la tienda verde en inbound → **outbound §7.2/§8** (siguiente bloque del BUILD ORDER).
+**El consumidor muestra cada artista por separado**, no una vitrina común. Con eso se
+cae la razón de ser de normalizar: `product_type` crudo (`Print`, `Ceramic`,
+`Resin sculpture`) pinta un perfil individual igual de bien que una `category` traducida.
+
+Se descartó, entonces, todo esto que estaba planeado y a medio construir:
+
+- El mapa `product_type` → `category` por tienda, con su tabla de reglas y su script.
+- La derivación de `technique` y `year` desde la prosa de las descripciones.
+- Empujar las 10 definiciones canónicas a la tienda de un artista que no las va a llenar.
+
+Queda en el repo `scripts/create-metafield-definitions.ts` (con
+`src/services/metafield-definitions.ts` y su GraphQL): crea en la tienda del artista las
+definiciones `custom.*` que le falten, idempotente y en modo plan por defecto —hay que
+pasar `--aplicar` para que escriba—. No se ejecutó contra ninguna tienda. Sirve el día
+que un artista sí quiera cargar sus atributos.
+
+### Por qué derivar era mala idea, con evidencia del catálogo real
+
+Medido sobre las 183 obras de la segunda tienda:
+
+| campo | derivable | problema |
+|---|---|---|
+| `category` | sí, desde `product_type` (144/183) | ninguno técnico: solo faltaba la decisión de negocio |
+| `technique` | 160/183 mencionan una técnica | **68 mencionan más de una** ("grabado … en técnica giclee"): 43 % sería moneda al aire |
+| `year` | 68/183 traen un año | **24 traen más de uno**, y hay falsos positivos demostrables |
+
+El caso que cierra la discusión de `year`:
+
+> "La esfera de nieve en **Ciudadano Kane (1941)** es uno de los símbolos más icónicos…"
+
+Ese 1941 es el año de la película, no de la obra. Derivarlo habría publicado una fecha
+falsa en el perfil público de un artista. Un campo vacío se ve incompleto; un dato
+inventado se ve creíble y está mal — y sobre obra ajena, eso no es un bug cosmético.
+
+### Lo que sí se sostiene como contrato
+
+Cada artista entrega **lo suyo, con su propio vocabulario**: `details` con sus etiquetas,
+`product_type`, `tags`, `collections`, opciones de variante y `description_text`. Lo que
+no tenga viaja con la clave presente y valor `null` (verificado: las 10 canónicas salen
+siempre, incluso en la tienda que no cargó ninguna). La uniformidad está en el
+**mecanismo**, no en la lista de campos: los artistas venden cosas distintas y forzar un
+esquema común obligaría a inventar datos.
+
+Vocabularios reales, para dimensionar por qué un mapa global era imposible:
+
+    Tienda A  product_type:  Neo Ancestral · Obra
+    Tienda B  product_type:  Print · Ceramic · Resin sculpture
+
+### Entregado al consumidor
+
+`docs/api-gateway-handoff.md` (gitignored: lleva la API key) advierte las tres cosas que
+condicionan su UI, todas medidas y no supuestas:
+
+1. Los campos de `shop.artist` pueden venir `null` — una de las dos tiendas no tiene
+   `bio`, y se decidió entregar el perfil así en vez de perseguir al artista.
+2. `details` varía radicalmente entre artistas (100 % de las obras en una tienda, 0 % en
+   la otra) y eso no va a cambiar.
+3. Una opción de variante puede empacar dos dimensiones en un valor
+   (`"A4 / Con Marco"`). El precio cambia con cada combinación —verificado en 103 de 103
+   productos—, así que la variante es la unidad de compra correcta, pero quien quiera
+   selectores separados de tamaño y marco tendrá que partir el string.
+
+## details: lista blanca por namespace `custom` (2026-09-02)
+
+El filtro de `details` era una lista negra (`global`, `shopify`, `shopify--%`), así que
+entregaba al consumidor los metafields de las apps instaladas por el artista. Medido
+sobre la tienda de Rafael: 11 productos servían `zipifypages.config`,
+`productpagedata`, `headercontent`, `footercontent`, `btnpopups`, `stylesversion`,
+`productpagescripts`, más `mc-facebook` y `mm-google-shopping` — configuración interna
+de un page builder y de feeds de marketing, cero atributos reales.
+
+`017_details_solo_custom.sql` cambia el filtro a lista blanca por `custom`, el namespace
+donde Shopify guarda lo que define el comerciante. La forma importa más que el caso
+puntual: con lista negra, cada app que instale cualquier artista abre un agujero nuevo
+que hay que descubrir a mano.
+
+Medición previa que respalda el corte — ningún falso positivo ni negativo:
+
+| tienda | namespaces presentes |
+|---|---|
+| Sara | `custom` (16 claves, 1058 apariciones) + `global` (SEO, ya excluido) |
+| Rafael | `zipifypages`(7) + `mc-facebook`(1) + `mm-google-shopping`(1) + `global`(2) — **ningún `custom`** |
+
+Verificado contra el endpoint tras aplicar: Sara conserva sus 15 claves íntegras; Rafael
+queda con `details: []`, que es la verdad —no cargó atributos—. Los campos canónicos al
+nivel del producto no se tocaron: ya leían `custom.<clave>` explícitamente.
+
+**Documentado para el consumidor** en `docs/api-gateway-handoff.md`, sección "Qué hacer
+cuando los atributos vienen vacíos": integrar en cascada (campo canónico → opciones de
+variante → `product_type` → `description_text`), con la advertencia de que los nombres
+de opción no están normalizados ni siquiera dentro de una misma tienda (en la de Rafael
+conviven `TAMAÑO`, `Talla` y `Size`, y `Marco`/`MARCO`).
+
+## Inventario por TODAS las locations, no solo la primaria (2026-09-02)
+
+El import pedía `inventoryLevel(locationId:)` de la location primaria y nada más. En la
+tienda de Rafael eso dejaba **88 de 583 variantes sin una sola fila de inventario**: el
+import las reportaba como advertencia y el consumidor las recibía con `inventory: []`,
+indistinguibles de agotadas.
+
+**Dónde estaba el stock: en una location llamada "Printful"** que la consulta
+`locations` de Shopify **no devuelve** — los servicios de fulfillment tienen su propia
+location oculta. Por eso `list-locations`, que iteraba la lista de locations para medir,
+era estructuralmente incapaz de verla.
+
+Cambios (typecheck limpio, ambas tiendas reimportadas y verificadas contra el endpoint):
+
+| Archivo | Cambio |
+|---|---|
+| `products.query.ts` | `INVENTORY_BATCH_QUERY`: `inventoryLevel(locationId:)` → `inventoryLevels(first:$levels)` con `location{id name}` y `pageInfo` |
+| `catalog-import.ts` | Fase 2 escribe una fila por (variante, location). Lote 100→50 (la query pide hasta 20 niveles por item, sube el costo). Advierte si un item tiene más locations que el tope, y si no tiene `available` en ninguna |
+| `list-locations.ts` | Mide agrupando por la location que responde, en una sola llamada, en vez de iterar `locations`. Marca las que no aparecen listadas como *fulfillment service* |
+
+No hubo que tocar el gateway (`api_get_catalog` ya agregaba todas las filas por variante
+sin filtrar location) ni el worker (el handler de `inventory_levels/update` ya escribía a
+la location que trae el payload).
+
+Resultado — Rafael: 495 → **583 filas, cobertura 100 %, cero advertencias**. 495 en la
+primaria (stock real, rango -3 a 4) y 88 en Printful (9998-9999, el "ilimitado" del
+print-on-demand). Ninguna variante quedó en dos locations. Sara: sin cambios (278/278),
+tiene una sola location.
+
+**Para el consumidor:** `inventory` ya podía traer varias entradas por diseño y ahora de
+verdad las trae. Un `available` de 9999 es el placeholder de print-on-demand, no
+existencias contadas — la advertencia de la Decisión 7b sobre no leer `available` como
+unidades sigue vigente para esa tienda.
+
+## Alta de un artista nuevo — runbook vigente
+
+Probado en dos tiendas (Sara Alarcón, Rafael Lanfranco) sin una línea de código
+específica por artista. Todo corre contra cloud: `cp .env.cloud .env`.
+
+### Regla dura: una app POR TIENDA, creada dentro del admin del artista
+
+El Client Credentials grant solo funciona si la app y la tienda pertenecen a la misma
+organización de Shopify. Las dos tiendas activas lo cumplen porque **cada una tiene su
+propia app** creada dentro de su propio admin — sus `client_id` son distintos entre sí, o sea que no comparten una app central.
+
+Crear UNA app en la organización propia (Dev Dashboard) y apuntarla a la tienda de un
+artista **no funciona**: Shopify responde `shop_not_permitted` aunque la app esté
+instalada y la tienda tenga plan pagado. Pasó con la tercera tienda (2026-09) y costó
+varias horas de diagnóstico — el error es el mismo para "app no instalada", así que
+despista. Consecuencia de diseño: **no** hace falta implementar Authorization Code
+grant; el patrón una-app-por-tienda cubre tiendas independientes de artistas.
+
+**Paso 0 — del lado de Shopify (lo hace el artista).** Ver
+`docs/conectar-tienda-shopify.md`, que es el documento para reenviarle. Tres requisitos
+que bloquean todo lo demás si faltan:
+- App creada con **distribución personalizada** (una app pública queda "en revisión" y
+  no se puede instalar).
+- App **instalada** — el contador "Instalaciones" del Dev Dashboard debe decir ≥1.
+  Sin esto el mint responde `shop_not_permitted`.
+- La tienda en un **plan pagado activo**. El Client Credentials grant no funciona en
+  tiendas en trial: mismo error `shop_not_permitted` aunque la app esté bien instalada.
+
+```bash
+# 1. Validar credenciales antes de tocar nada (no imprime el secret ni el token)
+export SHOP_DOMAIN=<tienda>.myshopify.com
+export SHOPIFY_CLIENT_ID=...   SHOPIFY_CLIENT_SECRET=...
+bash scripts/test-mint.sh
+
+# 2. Alta. Con --location-id 000 el alta se bloquea sin escribir nada y lista las
+#    locations reales; repetir con la correcta. Ver también `npm run list-locations`,
+#    que mide inventario por location (elegir por nombre ya salió mal una vez).
+npm run onboard -- --shop-domain <tienda>.myshopify.com --location-id 000 \
+  --artist-name "<Artista>"        # o --artist-id <uuid> si el artista ya existe
+
+# 3. Import inicial (idempotente; revisar advertencias y completitud)
+npm run import-catalog -- --shop-id <uuid>
+
+# 4. Webhooks en vivo — solo DESPUÉS del import (BUILD ORDER)
+npm run register-webhooks -- --shop-id <uuid> \
+  --callback-url https://fgrpclxpjciosvjzbefo.supabase.co/functions/v1/webhook
+#    FULFILLMENTS_UPDATE falla de forma esperada: falta el scope (PENDIENTES #8)
+
+# 5. Exponer la tienda al consumidor del API — SIN ESTO QUEDA INVISIBLE
+npm run add-shop-to-consumer -- --consumer <nombre> --shop-id <uuid>
+```
+
+**El paso 5 es el que se olvida en silencio.** El gateway valida `shop_id` contra
+`allowed_shop_ids` (Decisión 6): sin autorizar, la tienda queda perfectamente
+sincronizada y el consumidor recibe 403. Le pasó a la tienda de Rafael, que estuvo
+sincronizada e invisible desde el 2026-08-19 hasta que se detectó.
+
+Al terminar: **checklist §13** con la tienda real (#1–#4 y #7 inbound) y documentar
+PENDIENTES #1 y #3.
 
 ## Panel visual (ops)
 
