@@ -11,7 +11,7 @@ import {
 } from "../graphql/products.query.js";
 import type { ShopCredentials } from "../types/index.js";
 import { PaginatedCatalogSource, type CatalogSource } from "./catalog-source.js";
-import { toGid } from "./gid.js";
+import { numericId, toGid } from "./gid.js";
 import { mintAccessToken, shopifyGraphql } from "./shopify-client.js";
 import { syncShopProfile } from "./shop-profile.js";
 import { upsertProductoImportado } from "../repositories/catalog.js";
@@ -27,7 +27,10 @@ export interface ImportSummary {
   advertencias: string[];
 }
 
-const INVENTORY_BATCH = 100;
+const INVENTORY_BATCH = 50;
+// Locations por item que se piden de una. Una tienda normal tiene 1-3; el tope
+// deja margen para fulfillment services sin disparar el costo de la query.
+const INVENTORY_LEVELS_POR_ITEM = 20;
 
 export async function importCatalog(
   supabase: SupabaseClient,
@@ -108,7 +111,10 @@ export async function importCatalog(
       }
     }
 
-    // Fase 2 (página): available POR la location primaria, en lotes (§5.1 paso 4)
+    // Fase 2 (página): available por item en TODAS sus locations, en lotes.
+    // Una fila por (variante, location): el consumidor recibe la foto completa
+    // y decide. Limitarlo a la primaria escondía el stock de los servicios de
+    // fulfillment, que viven en una location propia (ver INVENTORY_BATCH_QUERY).
     const items = [...itemToVariant.keys()];
     for (let i = 0; i < items.length; i += INVENTORY_BATCH) {
       const lote = items.slice(i, i + INVENTORY_BATCH);
@@ -118,7 +124,7 @@ export async function importCatalog(
         query: INVENTORY_BATCH_QUERY,
         variables: {
           ids: lote.map((id) => toGid("InventoryItem", id)),
-          locationId: toGid("Location", creds.location_id),
+          levels: INVENTORY_LEVELS_POR_ITEM,
         },
       });
 
@@ -128,26 +134,42 @@ export async function importCatalog(
         const variantId = itemToVariant.get(itemId);
         if (!variantId) continue;
 
-        const qty = node.inventoryLevel?.quantities.find((q) => q.name === "available")?.quantity;
-        if (typeof qty !== "number") {
-          // Item sin nivel en la location primaria: NO inventar un número.
-          // Sin fila = no vendible aquí — la dirección segura (mostrar menos).
+        const niveles = node.inventoryLevels?.nodes ?? [];
+        if (node.inventoryLevels?.pageInfo.hasNextPage) {
+          // Más locations de las que pedimos: se escriben las traídas, pero hay
+          // que saberlo — el consumidor vería un inventario incompleto.
           summary.advertencias.push(
-            `inventory_item ${itemId} sin nivel 'available' en la location primaria: no escrito`,
+            `inventory_item ${itemId} tiene más de ${INVENTORY_LEVELS_POR_ITEM} locations: solo se escribieron las primeras`,
           );
-          continue;
         }
 
-        const { error: applyErr } = await supabase.rpc("apply_inventory_change", {
-          p_variant_id: variantId,
-          p_location_id: creds.location_id,
-          p_new_available: qty,
-          p_source: "initial_import",
-        });
-        if (applyErr) {
-          throw new Error(`apply_inventory_change ${variantId}: ${applyErr.message}`);
+        let escritosDelItem = 0;
+        for (const nivel of niveles) {
+          const qty = nivel.quantities.find((q) => q.name === "available")?.quantity;
+          // available null = item sin tracking en esa location: NO inventar un
+          // número, simplemente no se escribe esa fila.
+          if (typeof qty !== "number") continue;
+
+          const { error: applyErr } = await supabase.rpc("apply_inventory_change", {
+            p_variant_id: variantId,
+            p_location_id: numericId(nivel.location.id),
+            p_new_available: qty,
+            p_source: "initial_import",
+          });
+          if (applyErr) {
+            throw new Error(`apply_inventory_change ${variantId}: ${applyErr.message}`);
+          }
+          summary.inventariosEscritos++;
+          escritosDelItem++;
         }
-        summary.inventariosEscritos++;
+
+        if (escritosDelItem === 0) {
+          // Sin una sola location con 'available': sin filas = no vendible,
+          // la dirección segura (mostrar menos, nunca inventar existencias).
+          summary.advertencias.push(
+            `inventory_item ${itemId} sin 'available' en ninguna location: no escrito`,
+          );
+        }
       }
     }
   }

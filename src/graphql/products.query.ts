@@ -155,17 +155,34 @@ export interface ExtraVariantsData {
   } | null;
 }
 
-/** Fase 2: available por item EN la location primaria, en lotes por ids. */
+/**
+ * Fase 2: available por item en TODAS sus locations, en lotes por ids.
+ *
+ * No se limita a la location primaria a propósito: los servicios de fulfillment
+ * (Printful y similares) exponen su stock en una location propia que Shopify NO
+ * devuelve en la consulta de `locations`. Pidiendo solo la primaria, esas
+ * variantes llegaban al consumidor sin ninguna fila de inventario —
+ * indistinguibles de "agotado" cuando en realidad son las que siempre hay.
+ */
 export const INVENTORY_BATCH_QUERY = /* GraphQL */ `
-  query InventoryBatch($ids: [ID!]!, $locationId: ID!) {
+  query InventoryBatch($ids: [ID!]!, $levels: Int!) {
     nodes(ids: $ids) {
       __typename
       ... on InventoryItem {
         id
-        inventoryLevel(locationId: $locationId) {
-          quantities(names: ["available"]) {
-            name
-            quantity
+        inventoryLevels(first: $levels) {
+          pageInfo {
+            hasNextPage
+          }
+          nodes {
+            location {
+              id
+              name
+            }
+            quantities(names: ["available"]) {
+              name
+              quantity
+            }
           }
         }
       }
@@ -177,8 +194,12 @@ export interface InventoryBatchData {
   nodes: Array<{
     __typename: string;
     id?: string;
-    inventoryLevel?: {
-      quantities: Array<{ name: string; quantity: number }>;
+    inventoryLevels?: {
+      pageInfo: { hasNextPage: boolean };
+      nodes: Array<{
+        location: { id: string; name: string };
+        quantities: Array<{ name: string; quantity: number }>;
+      }>;
     } | null;
   } | null>;
 }

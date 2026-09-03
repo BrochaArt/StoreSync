@@ -16,7 +16,7 @@ import {
   TRACKING_SAMPLE_QUERY,
   type TrackingSampleData,
 } from "../src/graphql/onboarding.queries.js";
-import { numericId, toGid } from "../src/services/gid.js";
+import { numericId } from "../src/services/gid.js";
 import { mintAccessToken, ShopifyAuthError, shopifyGraphql } from "../src/services/shopify-client.js";
 
 try {
@@ -83,25 +83,37 @@ try {
     if (items.length === 0) {
       console.log("  La tienda no tiene variantes: no hay inventario que medir.");
     } else {
-      const filas: Array<{ id: string; name: string; conNivel: number; unidades: number }> = [];
-      for (const l of activas) {
-        const id = numericId(l.id);
-        const data = await shopifyGraphql<InventoryBatchData>({
-          shopDomain,
-          accessToken,
-          query: INVENTORY_BATCH_QUERY,
-          variables: { ids: items, locationId: toGid("Location", id) },
-        });
-        let conNivel = 0;
-        let unidades = 0;
-        for (const node of data.nodes) {
-          const q = node?.inventoryLevel?.quantities.find((x) => x.name === "available");
+      // Se pregunta por los niveles de la muestra y se agrupa por la location
+      // que responde, en vez de iterar la lista de locations: los servicios de
+      // fulfillment (Printful y similares) NO salen en `locations` pero sí
+      // guardan stock, y medir solo las listadas los dejaba invisibles.
+      const data = await shopifyGraphql<InventoryBatchData>({
+        shopDomain,
+        accessToken,
+        query: INVENTORY_BATCH_QUERY,
+        variables: { ids: items, levels: 20 },
+      });
+
+      const porLocation = new Map<string, { name: string; conNivel: number; unidades: number }>();
+      for (const node of data.nodes) {
+        for (const nivel of node?.inventoryLevels?.nodes ?? []) {
+          const q = nivel.quantities.find((x) => x.name === "available");
           if (typeof q?.quantity !== "number") continue;
-          conNivel++;
-          unidades += q.quantity;
+          const id = numericId(nivel.location.id);
+          const acc = porLocation.get(id) ?? { name: nivel.location.name, conNivel: 0, unidades: 0 };
+          acc.conNivel++;
+          acc.unidades += q.quantity;
+          porLocation.set(id, acc);
         }
-        filas.push({ id, name: l.name, conNivel, unidades });
       }
+
+      const listadas = new Set(nodes.map((l) => numericId(l.id)));
+      const filas = [...porLocation.entries()].map(([id, v]) => ({
+        id,
+        name: listadas.has(id) ? v.name : `${v.name}  (no aparece en locations: fulfillment service)`,
+        conNivel: v.conNivel,
+        unidades: v.unidades,
+      }));
 
       console.log(`  sobre ${items.length} variantes muestreadas:\n`);
       for (const f of filas) {
