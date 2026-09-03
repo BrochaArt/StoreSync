@@ -9,10 +9,12 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "onboard": "tsx scripts/onboard-shop.ts",
-    "list-locations": "tsx scripts/list-locations.ts",
     "import-catalog": "tsx scripts/import-catalog.ts",
     "register-webhooks": "tsx scripts/register-webhooks.ts",
+    "list-locations": "tsx scripts/list-locations.ts",
+    "create-metafield-definitions": "tsx scripts/create-metafield-definitions.ts",
     "create-api-consumer": "tsx scripts/create-api-consumer.ts",
+    "add-shop-to-consumer": "tsx scripts/add-shop-to-consumer.ts",
     "panel": "tsx scripts/panel.ts"
   },
   "dependencies": {
