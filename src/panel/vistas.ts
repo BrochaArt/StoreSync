@@ -612,3 +612,25 @@ export function vistaAlta(ts: PanelTienda[], cs: ConsumidorRow[], sel: string | 
   <div class="pills">${pills}</div>
   ${cuerpo}`;
 }
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+
+/** Pantalla de entrada. El `destino` vuelve a donde el operador quería ir. */
+export function vistaLogin(error: string | null, destino: string | null): string {
+  return `<form class="login" method="post" action="/login">
+    ${destino ? `<input type="hidden" name="destino" value="${esc(destino)}">` : ""}
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span class="marca">StoreSync</span>
+      <span class="meta">Panel de operación · solo personal autorizado</span>
+    </div>
+    ${error ? `<div class="aviso rojo">${ICONO_ALERTA}<span>${esc(error)}</span></div>` : ""}
+    <label>Correo
+      <input type="email" name="email" required autocomplete="username" autofocus>
+    </label>
+    <label>Contraseña
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit">Entrar</button>
+    <span class="meta" style="line-height:1.45">Las cuentas las crea un operador con <code>npm run create-panel-user</code>. No hay registro abierto.</span>
+  </form>`;
+}

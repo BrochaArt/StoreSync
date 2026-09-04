@@ -1,0 +1,18 @@
+# Nada con credenciales viaja al despliegue. Las variables se configuran en
+# Vercel, no se suben en archivos.
+.env
+.env.*
+!.env.example
+
+# Documento de entrega del API y su PDF: llevan la API key del consumidor.
+docs/api-gateway-handoff.md
+docs/StoreSync - Documentacion de integracion API.pdf
+
+# Nada de esto lo necesita el panel en producción.
+supabase/
+tests/
+examples/
+scripts/
+docs/
+*.md
+.claude/

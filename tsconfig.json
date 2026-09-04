@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -12,6 +14,13 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "scripts"],
-  "exclude": ["node_modules", "supabase/functions"]
+  "include": [
+    "src",
+    "scripts",
+    "server.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }

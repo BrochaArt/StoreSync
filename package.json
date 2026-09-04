@@ -15,8 +15,9 @@
     "create-metafield-definitions": "tsx scripts/create-metafield-definitions.ts",
     "create-api-consumer": "tsx scripts/create-api-consumer.ts",
     "add-shop-to-consumer": "tsx scripts/add-shop-to-consumer.ts",
-    "panel": "tsx scripts/panel.ts",
-    "doc-pdf": "bash scripts/generar-pdf-entrega.sh"
+    "panel": "tsx server.ts",
+    "doc-pdf": "bash scripts/generar-pdf-entrega.sh",
+    "create-panel-user": "tsx scripts/create-panel-user.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2"

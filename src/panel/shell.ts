@@ -135,6 +135,18 @@ const ESTILOS = `
   .flecha { color: #9a988f; display: inline-block; transition: transform .12s; }
   details[open] .flecha { transform: rotate(90deg); }
 
+  header .sesion { color: #9db3a6; }
+  header .sesion a { color: #cfe8dc; }
+
+  main.desnuda { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .login { background: #fff; border: 1px solid #dcdad2; border-radius: 12px; padding: 30px 32px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; }
+  .login .marca { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+  .login label { display: grid; gap: 5px; font-size: 13.5px; font-weight: 600; }
+  .login input { font: inherit; font-size: 14.5px; padding: 9px 12px; border: 1px solid #dcdad2; border-radius: 8px; background: #fff; color: #1e1e1c; }
+  .login input:focus { outline: 2px solid #1d9e7533; border-color: #1d9e75; }
+  .login button { font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; background: #16211c; color: #e9efe9; border: 0; border-radius: 8px; padding: 10px 16px; }
+  .login button:hover { background: #22332b; }
+
   @media (max-width: 1000px) {
     .dos, .cols3 { grid-template-columns: minmax(0, 1fr); }
   }
@@ -146,6 +158,10 @@ export interface OpcionesPagina {
   hostDb: string;
   /** Texto corto a la derecha de la cabecera (salud, hora, etc.). */
   derecha?: string;
+  /** Email del operador: se muestra con la salida de sesión. */
+  sesion?: string;
+  /** Sin navegación ni cabecera: la usa el login, que aún no autenticó. */
+  desnuda?: boolean;
   cuerpo: string;
 }
 
@@ -154,21 +170,26 @@ export function pagina(o: OpcionesPagina): string {
     (n) => `<a href="${n.href}"${n.href === o.ruta ? ' class="on"' : ""}>${esc(n.etiqueta)}</a>`,
   ).join("");
 
-  return `<!doctype html>
-<html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(o.titulo)} · StoreSync</title>
-<style>${ESTILOS}</style></head>
-<body>
-<header>
+  const cabecera = o.desnuda
+    ? ""
+    : `<header>
   <span class="marca">StoreSync</span>
   <span class="sub">panel de control</span>
   <nav>${nav}</nav>
   <span class="derecha">
     <span>datos de ${esc(o.hostDb)}</span>
     ${o.derecha ?? ""}
+    ${o.sesion ? `<span class="sesion">${esc(o.sesion)} · <a href="/salir">salir</a></span>` : ""}
   </span>
-</header>
-<main>${o.cuerpo}</main>
+</header>`;
+
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(o.titulo)} · StoreSync</title>
+<style>${ESTILOS}</style></head>
+<body>
+${cabecera}
+<main${o.desnuda ? ' class="desnuda"' : ""}>${o.cuerpo}</main>
 </body></html>`;
 }
