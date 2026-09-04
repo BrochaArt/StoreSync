@@ -230,6 +230,43 @@ Proyecto `fgrpclxpjciosvjzbefo` (org `ybjvneingmxwkrbvomqo`), CLI enlazada.
   correr los scripts contra el cloud: `cp .env.cloud .env` (volver a local:
   regenerar desde `supabase status -o env`).
 
+## Refresco periódico de collections/metafields/taxonomía (2026-09-04)
+
+Cierra PENDIENTES #6. `refresh-catalog` (Edge Function) + `018_refresh_catalogo.sql`,
+agendada cada 15 min como `refresh-catalogo`.
+
+| Pieza | Qué hace |
+|---|---|
+| `shops.last_refreshed_at` | marca para elegir la tienda más rancia |
+| `shop_a_refrescar()` | devuelve UNA tienda `active`, la de refresco más antiguo |
+| `refresh_catalog_metadata(shop_id, items)` | un solo UPDATE por lote; ignora productos que no tenemos y estampa `last_refreshed_at` |
+| `schedule_refresh_cron(url, secreto, schedule)` | agendado idempotente, mismo patrón que la 006 |
+
+Decisiones que vale la pena no re-litigar:
+
+- **Radio angosto a propósito.** Reescribe solo las tres columnas que no viajan en el
+  webhook REST. No crea ni borra productos: eso duplicaría a medias la lógica de
+  `products/create` / `products/delete`.
+- **Una tienda por corrida.** El trabajo por invocación no crece con la cantidad de
+  artistas; con N tiendas cada una se refresca cada N×15 min. Tope de 60 páginas
+  (3000 productos) y la respuesta trae `truncado` si se alcanzó.
+- **Reutiliza `worker_sync_token`.** El invocador es el mismo (pg_cron sobre esta base) y
+  la frontera de confianza es idéntica; un secreto aparte solo agregaría un paso de
+  despliegue.
+- **No reescribe si nada cambió** (`is distinct from`): las corridas normales reportan 0
+  actualizados en vez de tocar 205 filas.
+
+**El bundler de Edge Functions SÍ sigue imports fuera de la carpeta de la función.** El
+deploy subió `supabase/functions/refresh-catalog/index.ts` y `src/config/shopify.ts`
+juntos, así que la versión de API se importa de la fuente única (Decisión 1) en vez de
+duplicarse. Corrige el supuesto que había detrás de la decisión de implementación #7.
+
+Verificación en producción: rotación automática entre las dos tiendas, HTTP 200 real en
+`net._http_response` —no solo `cron.job_run_details`, por la lección del 401 silencioso—
+y la prueba de fondo: se metió deriva a mano en un producto (colecciones falsas,
+metafields vacíos, taxonomía nula) y la corrida siguiente reportó exactamente 1
+actualizado, restaurando 4 colecciones, 9 metafields y la taxonomía.
+
 ## No se normalizan los atributos entre artistas — decidido (2026-09-02)
 
 **El consumidor muestra cada artista por separado**, no una vitrina común. Con eso se

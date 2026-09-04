@@ -416,6 +416,11 @@ verify_jwt = false
 # pasaria verify_jwt y nadie mas que el sistema debe drenar la cola)
 verify_jwt = false
 
+[functions.refresh-catalog]
+# Lo invoca pg_cron con el token dedicado del worker (migracion 018), igual que
+# worker-sync: con verify_jwt un JWT anon valido tambien pasaria
+verify_jwt = false
+
 [functions.api-gateway]
 # El consumidor externo autentica con su propia API key (sha256 vs key_hash),
 # no con JWT de Supabase: la auth la aplica la función en código (Decisión 6)

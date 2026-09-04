@@ -46,14 +46,28 @@ a `media(first:){ ... on MediaImage }`).
 Hoy "alertar" = fila en `sync_events` (status `dead_letter`) + log. Falta decidir el
 canal real de alerta (email/Slack/otro) — no cubierto por los documentos.
 
-## 6. Frescura de `collections`, `metafields` y `category` (Decisión 7)
+## 6. Frescura de `collections`, `metafields` y `category` — RESUELTO (2026-09-04)
 
-El payload REST de `products/update` no trae ninguno de los tres, así que el worker
-no puede refrescarlos: solo los actualiza el import completo. Si el artista mueve un
-producto de colección o edita un metafield, el gateway sigue sirviendo el valor viejo
-hasta el próximo import. Decidir el mecanismo: re-import periódico por cron,
-suscripción a `collections/update` (solo resuelve colecciones), o aceptar la deriva y
-documentarla al consumidor.
+El payload REST de `products/update` no trae ninguno de los tres, así que el worker no
+podía refrescarlos: solo los actualizaba un import completo a mano. Si el artista movía
+un producto de colección o editaba un metafield, el gateway servía el valor viejo
+indefinidamente.
+
+Resuelto con la Edge Function `refresh-catalog` + migración 018, agendada cada 15 min
+(`refresh-catalogo`, job 3). Relee **solo esas tres columnas** desde Shopify: no crea ni
+borra productos —eso siguen haciéndolo `products/create` y `products/delete`— ni toca
+título, precio, imágenes o inventario, que sí viajan en el webhook.
+
+Una tienda por corrida, la de `last_refreshed_at` más antiguo, así el trabajo por
+invocación no crece con la cantidad de artistas: con N tiendas cada una se refresca cada
+N×15 minutos.
+
+Verificado en producción: rotación entre las dos tiendas, HTTP 200 real en
+`net._http_response` (no solo "cron succeeded"), y la prueba que importa — se introdujo
+deriva deliberada en un producto (colecciones falsas, metafields vacíos, taxonomía nula)
+y la siguiente corrida reportó exactamente **1 producto actualizado**, restaurando sus 4
+colecciones, 9 metafields y la taxonomía. Las corridas sin deriva reportan 0: la
+comparación `is distinct from` evita reescribir el catálogo entero cada vez.
 
 ## 7. Datos que el artista debe cargar en Shopify para que viajen estructurados
 
