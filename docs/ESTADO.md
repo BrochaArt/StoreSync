@@ -464,7 +464,84 @@ procesar y últimos sync_events. Server-side rendered: service_role solo en el
 proceso local, nunca en el navegador. La superficie para consumidores externos
 sigue siendo el gateway (Decisión 6), pendiente por BUILD ORDER.
 Env files (gitignored): `.env` activo · `.env.local` stack local · `.env.cloud`
-producción (usa la key legacy JWT: el REST del proyecto rechaza las `sb_secret_…`).
+producción (usa la key legacy JWT: el REST del proyecto rechaza las `sb_secret_…`,
+verificado en producción el 2026-09-04 — ver esa sección antes de intentar rotar).
+
+## El panel vive en el equipo personal, no en BOSS (2026-09-04)
+
+El proyecto de Vercel estaba creado bajo el equipo `bosstechnology`, así que la
+`service_role` de Brocha quedaba guardada como variable de entorno de un equipo
+ajeno al proyecto. Se rehízo el despliegue en `henry-garzons-projects` y se
+borró el proyecto de BOSS, que se llevó la variable con él.
+
+| Pieza | Valor |
+|---|---|
+| Equipo | `henry-garzons-projects` |
+| Proyecto | `storesync-panel` |
+| Dominio | `panel.brocha.art` |
+| DNS | `A panel → 76.76.21.21` en 101domain (nameservers `ns1/ns2.101domain.com`) |
+| Certificado | Let's Encrypt, automático (~75 s tras crear el registro) |
+| Protección | `all_except_custom_domains` |
+
+`all_except_custom_domains` es deliberado: la URL `.vercel.app` queda detrás del
+SSO de Vercel (solo el dueño de la cuenta) y `panel.brocha.art` queda pública
+con el login de Supabase como única puerta. Verificado desde el dominio: `/login`
+200, `/` sin sesión 302 → `/login`, y POST con credenciales falsas 401
+"Credenciales incorrectas" (o sea, llega a Supabase y rechaza).
+
+### Pendiente: rotar la `service_role`
+
+La key estuvo guardada en un proyecto del equipo equivocado. Aunque ese proyecto
+ya no existe, una credencial que vivió donde no debía se rota.
+
+No hacerlo por el camino legacy: rotar una `service_role` JWT rota el *JWT
+secret* del proyecto e invalida **todas** las keys legacy de golpe —también la
+`anon`— más las sesiones abiertas. El camino limpio es crear una `sb_secret_…`
+nueva, cambiarla en Vercel, redesplegar y recién ahí revocar la legacy. Los
+`grant execute … to service_role` de las migraciones siguen valiendo: las secret
+keys nuevas mapean al mismo rol de Postgres.
+
+Antes de revocar hay que actualizar también `.env`, `.env.local` y `.env.cloud`,
+o los scripts de operador (`onboard`, `import-catalog`, `register-webhooks`,
+`panel`) dejan de andar. El worker no se ve afectado: usa `WORKER_SYNC_TOKEN`
+(decisión #9).
+
+### Las `sb_secret_…` NO sirven en este proyecto — verificado a los golpes
+
+Esta sección afirmó primero lo contrario. Estaba mal y costó una caída del login;
+queda escrito para que nadie lo repita.
+
+Lo que se probó y falló: se creó una secret key nueva, se cargó como
+`SUPABASE_SERVICE_ROLE_KEY` en Vercel y se redesplegó. Al entrar al panel, el RPC
+`panel_tiene_acceso` devolvió **`Invalid API key`** y el login quedó inutilizable.
+Se volvió a la legacy.
+
+El error de razonamiento: se probó una `sb_publishable_…` contra `/rest/v1/` y,
+al ver que era aceptada, se generalizó a las secret. No se sostiene — los dos
+formatos se resuelven por caminos distintos:
+
+| Key | Contra `/rest/v1/` |
+|---|---|
+| `anon` legacy (JWT) | aceptada → rol `anon` → `42501` por RLS |
+| `sb_publishable_…` | aceptada → rol `anon` → `42501` por RLS |
+| `sb_secret_…` | **rechazada** → `Invalid API key` |
+| `service_role` legacy (JWT) | aceptada → rol `service_role` |
+
+Sí vale la pena conservar la distinción de diagnóstico, que sigue siendo cierta:
+**`42501` viaja como HTTP 401** y se lee igual que "key inválida", pero no lo es.
+Al depurar un 401 de PostgREST hay que leer el `code` del cuerpo: `42501` es RLS
+—la key entró bien—, mientras que `Invalid API key` sí es la credencial.
+
+Y el detalle que hizo el fallo difícil de leer: `tieneAcceso`
+(`src/panel/auth.ts`) atrapa el error del RPC y devuelve `false`. Con una
+`service_role` inválida el panel no dice "key mala", dice **"Esta cuenta no está
+autorizada para el panel"**. Si aparece ese mensaje sin haber tocado
+`panel_usuarios`, sospechar de la key antes que de la cuenta.
+
+Conclusión operativa: **la rotación por keys nuevas está bloqueada** hasta
+entender por qué el proyecto rechaza las secret. La `service_role` legacy sigue
+siendo la única que funciona, y sigue pendiente de rotar — por ahora solo por la
+vía legacy, que invalida todas las keys legacy de golpe y necesita ventana.
 
 ## Cómo correr todo en local
 
