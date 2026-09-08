@@ -17,7 +17,8 @@
     "add-shop-to-consumer": "tsx scripts/add-shop-to-consumer.ts",
     "panel": "tsx server.ts",
     "doc-pdf": "bash scripts/generar-pdf-entrega.sh",
-    "create-panel-user": "tsx scripts/create-panel-user.ts"
+    "create-panel-user": "tsx scripts/create-panel-user.ts",
+    "delete-panel-user": "tsx scripts/delete-panel-user.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2"
