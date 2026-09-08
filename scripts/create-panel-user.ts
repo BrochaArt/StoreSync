@@ -5,10 +5,15 @@
 // argumento queda en el historial del shell y en la lista de procesos.
 //
 // Correrlo sobre una cuenta que ya existe RESTABLECE su contraseña, así que
-// sirve igual para dar de alta y para recuperar el acceso de alguien.
+// sirve igual para dar de alta y para recuperar el acceso de alguien. Por eso
+// pide --confirmar: restablecerle la contraseña a alguien sin querer lo deja
+// afuera del panel, y el aviso previo dice cuál de los dos casos es.
+//
+// La guarda existe porque un correo de ejemplo copiado tal cual creó una cuenta
+// real en producción. Sin --confirmar el script no escribe nada.
 //
 // Uso:
-//   PANEL_PASSWORD='...' npm run create-panel-user -- --email tu@correo.com --nombre "Tu Nombre"
+//   PANEL_PASSWORD='...' npm run create-panel-user -- --email tu@correo.com --nombre "Tu Nombre" --confirmar
 //
 // Para revocar el acceso de alguien, sin borrarle la cuenta:
 //   update panel_usuarios set activo = false where email = '...';
@@ -23,7 +28,11 @@ try {
 }
 
 const { values } = parseArgs({
-  options: { email: { type: "string" }, nombre: { type: "string" } },
+  options: {
+    email: { type: "string" },
+    nombre: { type: "string" },
+    confirmar: { type: "boolean" },
+  },
 });
 
 const email = values.email?.trim().toLowerCase();
@@ -33,7 +42,7 @@ const password = process.env["PANEL_PASSWORD"];
 if (!email || !password) {
   console.error(
     "Requiere --email y la variable PANEL_PASSWORD.\n" +
-      "  PANEL_PASSWORD='...' npm run create-panel-user -- --email tu@correo.com",
+      "  PANEL_PASSWORD='...' npm run create-panel-user -- --email tu@correo.com --confirmar",
   );
   process.exit(2);
 }
@@ -45,6 +54,40 @@ if (password.length < 12) {
 }
 
 const supabase = createServiceClient();
+
+// ── Qué se va a hacer ────────────────────────────────────────────────────────
+// Se averigua ANTES de escribir: dar de alta a alguien nuevo y restablecerle la
+// contraseña a alguien que ya entra son operaciones muy distintas, y hasta acá
+// se distinguían solo por el resultado.
+const { data: yaEnLista } = await supabase
+  .from("panel_usuarios")
+  .select("email, nombre, activo")
+  .eq("email", email)
+  .maybeSingle();
+
+const { data: lista, error: errListar } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+if (errListar) {
+  console.error(`✖ No se pudo consultar Supabase Auth: ${errListar.message}`);
+  process.exit(1);
+}
+const cuentaPrevia = lista.users.find((u) => u.email?.toLowerCase() === email);
+
+console.log(`Sobre ${email}:`);
+console.log(
+  cuentaPrevia
+    ? `  · cuenta de Auth — YA EXISTE (creada ${cuentaPrevia.created_at}); se le RESTABLECE la contraseña`
+    : "  · cuenta de Auth — se crea nueva",
+);
+console.log(
+  yaEnLista
+    ? `  · lista blanca — ya figura (nombre: ${yaEnLista.nombre ?? "(sin nombre)"}, activo: ${yaEnLista.activo})`
+    : `  · lista blanca — se agrega con nombre: ${nombre ?? "(sin nombre)"}`,
+);
+
+if (!values.confirmar) {
+  console.error("\nNo se escribió nada. Repetir con --confirmar para ejecutarlo.");
+  process.exit(2);
+}
 
 // ── Cuenta en Supabase Auth ──────────────────────────────────────────────────
 // email_confirm: no hay flujo de correo en el panel; el operador la crea a mano
@@ -65,13 +108,15 @@ if (errCrear) {
   // Ya existía: se le fija la contraseña indicada. Correrlo de nuevo es la
   // forma de restablecerla cuando alguien la olvida.
   yaExistia = true;
-  const { data: lista, error: errListar } = await supabase.auth.admin.listUsers();
-  const usuario = lista?.users.find((u) => u.email?.toLowerCase() === email);
-  if (errListar || !usuario) {
-    console.error(`✖ La cuenta existe pero no se pudo ubicar: ${errListar?.message ?? "no encontrada"}`);
+  // Se reutiliza la búsqueda del aviso previo en vez de volver a listar. Si la
+  // cuenta existe pero no figura ahí —creada entre el aviso y este punto—, se
+  // aborta: fijarle una contraseña a una cuenta que no se pudo identificar es
+  // peor que fallar.
+  if (!cuentaPrevia) {
+    console.error("✖ La cuenta existe pero no se pudo ubicar para actualizarla.");
     process.exit(1);
   }
-  const { error: errPass } = await supabase.auth.admin.updateUserById(usuario.id, { password });
+  const { error: errPass } = await supabase.auth.admin.updateUserById(cuentaPrevia.id, { password });
   if (errPass) {
     console.error(`✖ No se pudo actualizar la contraseña: ${errPass.message}`);
     process.exit(1);

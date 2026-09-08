@@ -47,7 +47,7 @@ const { data: fila } = await supabase
   .eq("email", email)
   .maybeSingle();
 
-const { data: lista, error: errListar } = await supabase.auth.admin.listUsers();
+const { data: lista, error: errListar } = await supabase.auth.admin.listUsers({ perPage: 1000 });
 if (errListar) {
   console.error(`✖ No se pudo consultar Supabase Auth: ${errListar.message}`);
   process.exit(1);
