@@ -670,6 +670,64 @@ Google Sheets. Hoy no molesta porque el consumidor usa el texto plano, pero
 cualquiera que pinte el HTML estaría inyectando CSS de un artista en su página.
 Sanitizarlo es trabajo aparte.
 
+## El HTML de las descripciones se entrega sanitizado (2026-09-08)
+
+Migraciones 023 y 024. `description_html` viajaba crudo al consumidor. Medido
+sobre los 388 productos vivos:
+
+| | antes | después |
+|---|---|---|
+| Con bloque `<style>` | 89 | **0** |
+| Con `data-sheets-*` / `data-mce-*` | 148 / 155 | **0** |
+| Con `style=` inline | 117 | **0** |
+| Con `<iframe>` | 3 | **3** (YouTube, intactos) |
+| HTML total entregado | 758 KB | **334 KB** |
+
+El `<style>` era el daño concreto, no hipotético: no está scopeado, así que un
+consumidor que pinte esa descripción le aplica el CSS del artista a TODA su
+página. Que hoy no hubiera `<script>`, `on*=` ni `javascript:` no era defensa —
+el artista escribe en su propio admin y puede pegar cualquier cosa mañana.
+
+**Lista blanca, no negra**, misma decisión y mismo motivo que la 017. Se declara
+lo que pasa (etiquetas de formato, `href` http/mailto, `src` https, video de
+YouTube y Vimeo) y se descarta todo lo demás. Los `style=` inline se van: eran
+residuo de pegar desde Word y Sheets, y hacían que cada ficha peleara con el
+diseño de quien la muestra.
+
+Se reemplaza el valor del campo existente en vez de agregar uno nuevo: dejar el
+crudo disponible sería dejar el problema disponible.
+
+### El bug que casi se va a producción
+
+La primera versión filtraba atributos con un regex NO anclado a una etiqueta,
+para barrer atributos sin valor (`<td nowrap>`). Sobre texto plano eso también
+matchea:
+
+```
+entrada:   <p>texto <strong>fuerte</strong> y <em>enfasis</em></p>
+resultado: <p>texto <strong>fuerte</strong> <em>enfasis</em></p>
+                                            ↑ se comió la "y"
+```
+
+Se comía cualquier palabra suelta seguida de espacio. **Regla: filtrar atributos
+SOLO sobre etiquetas completas (`<`…`>`).** La versión final los barre con un
+match de etiqueta entera y reconstruye desde cero lo que hay que conservar
+(`href`, `src` de video) usando centinelas; lo que no se reconstruye
+explícitamente, no sobrevive.
+
+Lo destapó una batería de 18 casos hostiles corrida antes de conectar nada al
+API. Vale conservarla al tocar esta función.
+
+### Cómo se verificó que no se pierde contenido
+
+`html_a_texto(html)` contra `html_a_texto(html_sanitizado(html))` sobre el
+catálogo real: **idéntico en los 388 productos**. Si sanitizar hubiera comido
+texto, el plano habría cambiado.
+
+Los 3 productos con video no aparecen hoy en el API porque están `active` pero
+sin stock, y el filtro de la 021 los saca. El embed les sobrevive al sanitizado
+—verificado— así que vuelven a salir apenas tengan inventario.
+
 ## Cómo correr todo en local
 
 ```bash
