@@ -600,6 +600,76 @@ las aplicó por fuera del CLI. La 021 quedó registrada, así que el hueco es
 comportaría raro. Conviene reconciliar el registro antes del próximo despliegue
 que dependa de él.
 
+## Moneda y orden de variantes (2026-09-08)
+
+Migración 022. Los dos bugs salieron del mismo caso real: el grabado "El RETRO
+FLYING GOLDFISH" de Rafael. En su Shopify la ficha abre en **S/. 395**; el
+consumidor (leadgods) lo publicó como **USD 475**. Dos fallas nuestras
+encadenadas, ninguna de ellas del consumidor.
+
+### 1. El catálogo no decía en qué moneda estaban los precios
+
+`variants.price` era un numérico pelado y no existía ninguna columna de moneda en
+el catálogo — `currency` estaba solo en `orders`. El consumidor recibía `475` sin
+unidad y asumió dólares.
+
+Lo que lo vuelve grave: **las dos tiendas publican en monedas distintas.**
+
+| Tienda | Moneda |
+|---|---|
+| Arte Lanfranco | `PEN` |
+| Sara Alarcon Art | `USD` |
+
+O sea que no había ni siquiera un default correcto que adivinar: para Sara la
+suposición era acertada y para Rafael multiplicaba el precio por ~3.7.
+
+La moneda va a nivel TIENDA (`shops.currency`, de `shop.currencyCode`), no de
+variante: Shopify define una sola por tienda y todos los precios del admin están
+en ella. Ponerla por variante invitaría a que se desincronicen.
+
+El campo puede venir `null` mientras una tienda no haya refrescado su perfil.
+**Un consumidor que lo reciba null no debe asumir una moneda por defecto** — es
+justamente el error que esto viene a cerrar.
+
+### 2. El orden de las variantes era el de un uuid
+
+No se guardaba el `position` de Shopify, y `api_get_catalog` ordenaba `by v.id`.
+Para ese grabado el orden entregado era:
+
+```
+A4/Con marco (475) → A3/Con marco (645) → A3/Sin marco (535) → A4/Sin marco (395)
+```
+
+contra el del artista, que abre en A4/Sin marco (395). Como la primera variante
+define el precio de portada, **un orden al azar era también un precio al azar**.
+Ahora se ordena `position nulls last, id`; el `id` queda solo como desempate
+estable para filas sin position.
+
+Ambos datos ya venían de Shopify y solo no se estaban guardando. Verificado antes
+de escribir código, no de memoria: `position` viaja en el payload REST del webhook
+(comprobado sobre un `products/update` real) y `Shop.currencyCode` existe en la
+Admin API 2026-07 (comprobado por introspección contra la tienda de Rafael).
+
+Backfill con `import-catalog` sobre las dos tiendas — es idempotente y de paso
+refresca el perfil, así que llenó moneda y posiciones en una pasada: 861
+variantes, 0 sin `position`.
+
+### Lo que NO era culpa nuestra, del mismo análisis
+
+- **"Técnica: Print"** en el consumidor sale de mapear nuestro `product_type`
+  como si fuera la técnica. Nuestro `technique` va en null porque Rafael tiene
+  **cero metafields**; la técnica real (giclee) solo está en la descripción.
+- **La descripción sin saltos de línea** es del consumidor: nuestro
+  `description_text` los entrega correctos (`\n\n`), ellos los colapsan a `". "`.
+
+### Pendiente que quedó a la vista
+
+`description_html` se entrega **crudo**, y el de Rafael trae un `<style>`
+completo y atributos `data-sheets-userformat` — la descripción fue pegada desde
+Google Sheets. Hoy no molesta porque el consumidor usa el texto plano, pero
+cualquiera que pinte el HTML estaría inyectando CSS de un artista en su página.
+Sanitizarlo es trabajo aparte.
+
 ## Cómo correr todo en local
 
 ```bash
