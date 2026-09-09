@@ -163,7 +163,9 @@ async function productUpsert(
         shopify_image_id: img.id !== undefined ? String(img.id) : null,
         url: img.src as string,
         alt_text: img.alt ?? null,
-        position: img.position ?? i,
+        // Shopify numera desde 1; el fallback tiene que arrancar igual o el
+        // orden queda corrido respecto del que escribe el import.
+        position: img.position ?? i + 1,
         updated_at: nowIso,
       }));
     if (rows.length > 0) {

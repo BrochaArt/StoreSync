@@ -129,18 +129,21 @@ export class PaginatedCatalogSource implements CatalogSource {
       vCursor = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
     }
 
-    // Imágenes: featuredImage primero (posición 0), resto en orden, dedupe por url
+    // Imágenes: `images.nodes` es la fuente de verdad — viene en orden de
+    // posición y cada nodo trae su id.
+    //
+    // Antes se insertaba `featuredImage` primero en posición 0 y después se
+    // deduplicaba por url, lo que descartaba justo el nodo que SÍ traía el id:
+    // la imagen principal de los 386 productos quedaba con shopify_image_id
+    // null. Un consumidor que indexe por ese id tenía la misma clave (null)
+    // para la principal de todo el catálogo. Además Shopify numera desde 1, no
+    // desde 0.
+    //
+    // `featuredImage` queda solo como red: si un producto no tiene nodos en
+    // `images` (su media principal es un video, por ejemplo) al menos entrega
+    // una imagen, aunque sin id porque esa consulta no lo expone.
     const images: ImagenImportada[] = [];
     const seen = new Set<string>();
-    if (node.featuredImage?.url) {
-      images.push({
-        shopifyImageId: null,
-        url: node.featuredImage.url,
-        altText: node.featuredImage.altText,
-        position: 0,
-      });
-      seen.add(node.featuredImage.url);
-    }
     for (const img of node.images.nodes) {
       if (seen.has(img.url)) continue;
       seen.add(img.url);
@@ -148,7 +151,15 @@ export class PaginatedCatalogSource implements CatalogSource {
         shopifyImageId: numericId(img.id),
         url: img.url,
         altText: img.altText,
-        position: images.length,
+        position: images.length + 1,
+      });
+    }
+    if (images.length === 0 && node.featuredImage?.url) {
+      images.push({
+        shopifyImageId: null,
+        url: node.featuredImage.url,
+        altText: node.featuredImage.altText,
+        position: 1,
       });
     }
 
