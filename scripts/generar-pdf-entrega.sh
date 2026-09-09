@@ -9,11 +9,18 @@
 # Uso:
 #   npm run doc-pdf
 #   MD=otro.md PDF=salida.pdf npm run doc-pdf
+#   TITULO="..." SUBTITULO="..." MD=otro.md PDF=salida.pdf npm run doc-pdf
+#
+# TITULO/SUBTITULO existen porque el script se reusa para documentos que no son
+# la entrega de integración (avisos de cambios al consumidor, por ejemplo) y el
+# encabezado fijo quedaba fuera de lugar.
 set -euo pipefail
 
 MD="${MD:-docs/api-gateway-handoff.md}"
 PDF="${PDF:-docs/StoreSync - Documentacion de integracion API.pdf}"
 CSS="docs/estilo-pdf.css"
+TITULO="${TITULO:-Acceso al API de catálogo — StoreSync}"
+SUBTITULO="${SUBTITULO:-Documentación de integración}"
 
 [ -f "$MD" ] || { echo "✖ No existe $MD (está gitignored: no viene en un clon nuevo)."; exit 1; }
 [ -f "$CSS" ] || { echo "✖ Falta $CSS"; exit 1; }
@@ -36,20 +43,21 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 pandoc "$MD" --standalone --from=gfm --to=html5 \
-  --metadata title="Acceso al API de catálogo — StoreSync" \
+  --metadata title="$TITULO" \
   --include-in-header=<(printf '<style>\n%s\n</style>' "$(cat "$CSS")") \
   -o "$TMP/doc.html"
 
 # Pandoc repite el título en su propio <header>; se quita y se pone la fecha.
-python3 - "$TMP/doc.html" <<'PY'
-import re, sys, datetime
+SUBTITULO="$SUBTITULO" python3 - "$TMP/doc.html" <<'PY'
+import re, sys, os, datetime
 p = sys.argv[1]
 h = open(p, encoding="utf-8").read()
 h = re.sub(r"<header[^>]*>.*?</header>", "", h, flags=re.S)
 h = h.replace(
     "</h1>",
-    '</h1>\n<p class="subtitulo">Documentación de integración · Generado el %s</p>'
-    % datetime.date.today().strftime("%d/%m/%Y"),
+    '</h1>\n<p class="subtitulo">%s · Generado el %s</p>'
+    % (os.environ.get("SUBTITULO", "Documentación de integración"),
+       datetime.date.today().strftime("%d/%m/%Y")),
     1,
 )
 open(p, "w", encoding="utf-8").write(h)
