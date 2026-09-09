@@ -728,6 +728,61 @@ Los 3 productos con video no aparecen hoy en el API porque están `active` pero
 sin stock, y el filtro de la 021 los saca. El embed les sobrevive al sanitizado
 —verificado— así que vuelven a salir apenas tengan inventario.
 
+## Las imágenes se entregan en tamaños (2026-09-09)
+
+Migración 026. El consumidor reportó que las miniaturas y las imágenes
+principales no se veían como en la tienda del artista. No era problema de
+ellos: les entregábamos **solo la URL del original**.
+
+Medido sobre la ficha del grabado "El RETRO FLYING GOLDFISH":
+
+| | |
+|---|---|
+| Lo que carga la tienda del artista | miniatura `width=246`, principal `width=1445` |
+| Lo que entregábamos | el original, **1.057 KB** |
+| La misma imagen a `width=400` | **25 KB** |
+
+44 veces más pesada por miniatura, con 1.739 imágenes en el catálogo. La tienda
+del artista **nunca** sirve el original: usa `&width=N` sobre la misma URL con un
+srcset de 8 a 12 anchos. Teníamos el dato y no lo usábamos.
+
+No se guarda nada nuevo. El CDN de Shopify redimensiona sobre la misma URL, así
+que `sizes` (thumb 400 / medium 800 / large 1600 / original) y `srcset` (246,
+400, 600, 800, 1200, 1600, 2048) se derivan con `imagen_ancho` al armar el
+payload. `url` se deja como estaba —el original— para no romper a quien ya lo lee.
+
+### El bug de la imagen principal, que salió en el mismo análisis
+
+`catalog-source.ts` insertaba `featuredImage` en posición 0 con
+`shopifyImageId: null`, y después deduplicaba por url el recorrido de
+`images.nodes` — descartando justo el nodo que **sí** traía el id:
+
+```ts
+images.push({ shopifyImageId: null, ... position: 0 });  // destacada
+for (const img of node.images.nodes) {
+  if (seen.has(img.url)) continue;   // se descarta la que traía el id
+```
+
+Resultado: **exactamente una imagen por producto** —la principal, la que más se
+muestra— con `shopify_image_id` en null. 386 de 386 productos con imágenes. Un
+consumidor que indexe por ese id tenía la misma clave (`null`) para la principal
+de todo el catálogo.
+
+De paso, las posiciones quedaban 0-based cuando Shopify numera desde 1. El worker
+ya usaba `img.position ?? i` —el correcto— así que el desfase lo metía solo el
+import, y se pisaba en cada corrida.
+
+Corregido: `images.nodes` es la fuente de verdad (viene ordenado y con ids),
+`position` arranca en 1, y `featuredImage` queda solo como red para un producto
+sin nodos en `images`. Backfill con `import-catalog`: 1.739 imágenes, **0 sin id**,
+posiciones de 1 a 15.
+
+### Lo que se descartó como causa
+
+Se muestrearon 10 productos de las dos tiendas contra el JSON público de
+Shopify: **ninguno asocia imágenes a variantes** (`variant_ids` vacío,
+`image_id` null). No hace falta guardar esa relación por ahora.
+
 ## Cómo correr todo en local
 
 ```bash
