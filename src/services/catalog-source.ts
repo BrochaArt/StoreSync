@@ -29,6 +29,13 @@ export interface VarianteImportada {
   title: string | null;
   sku: string | null;
   price: string | null;
+  /**
+   * Orden que el artista definió en su admin de Shopify. Sin esto el API
+   * entregaba las variantes ordenadas por uuid, o sea al azar: en la ficha de
+   * un grabado eso ponía adelante "A4 / Con marco" (S/. 475) en vez de la
+   * primera real, "A4 / Sin marco" (S/. 395), y con ella el precio de portada.
+   */
+  position: number | null;
   /** selectedOptions tal cual: donde el tamaño es opción, vive aquí */
   options: OpcionVariante[];
 }
@@ -181,6 +188,7 @@ export class PaginatedCatalogSource implements CatalogSource {
         title: v.title,
         sku: v.sku,
         price: v.price,
+        position: v.position,
         // Se guarda el nombre con trim (hay tiendas con la opción " Size"),
         // pero el VALOR no se toca: "30x 40" no se reescribe a "30cm x 40cm"
         // porque la unidad no está en el dato.

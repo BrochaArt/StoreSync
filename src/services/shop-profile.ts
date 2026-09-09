@@ -20,6 +20,8 @@ export interface PerfilTienda {
   contactEmail: string | null;
   website: string | null;
   bio: string | null;
+  /** ISO 4217 ("PEN", "USD"). La moneda en la que el artista publica. */
+  currency: string | null;
   /** "namespace.key" -> etiqueta legible definida por el artista */
   metafieldDefinitions: Record<string, string>;
 }
@@ -59,6 +61,7 @@ export async function fetchShopProfile(
     contactEmail: shop.contactEmail?.trim() || shop.email?.trim() || null,
     website: shop.url?.trim() || null,
     bio: shop.description?.trim() || null,
+    currency: shop.currencyCode?.trim() || null,
     metafieldDefinitions,
   };
 }
@@ -79,6 +82,7 @@ export async function syncShopProfile(
       contact_email: perfil.contactEmail,
       website: perfil.website,
       bio: perfil.bio,
+      currency: perfil.currency,
       metafield_definitions: perfil.metafieldDefinitions,
       profile_synced_at: new Date().toISOString(),
     })

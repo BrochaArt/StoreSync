@@ -13,6 +13,7 @@ export const SHOP_PROFILE_QUERY = /* GraphQL */ `
       contactEmail
       url
       description
+      currencyCode
     }
   }
 `;
@@ -26,6 +27,12 @@ export interface ShopProfileData {
     contactEmail: string | null;
     url: string | null;
     description: string | null;
+    /**
+     * Moneda en la que el artista publica sus precios. Sin esto el API entrega
+     * números sin unidad y el consumidor adivina: un grabado de S/. 475 se
+     * publicó como USD 475, casi cuatro veces su precio.
+     */
+    currencyCode: string | null;
   };
 }
 

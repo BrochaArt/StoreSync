@@ -56,6 +56,7 @@ export async function upsertProductoImportado(
       title: v.title,
       sku: v.sku,
       price: v.price,
+      position: v.position,
       options: v.options,
     }));
     const { data: variants, error: vErr } = await supabase

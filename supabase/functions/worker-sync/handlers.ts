@@ -33,6 +33,7 @@ interface ProductPayload {
     sku?: string | null;
     price?: string | number | null;
     inventory_item_id?: number | string;
+    position?: number | null;
     option1?: string | null;
     option2?: string | null;
     option3?: string | null;
@@ -137,6 +138,9 @@ async function productUpsert(
         title: v.title ?? null,
         sku: v.sku ?? null,
         price: v.price ?? null,
+        // El orden del admin del artista. Ya venía en el payload REST; solo no
+        // se estaba guardando, y el API terminaba ordenando por uuid.
+        position: typeof v.position === "number" ? v.position : null,
         options: [v.option1, v.option2, v.option3]
           .map((valor, i) => ({ name: nombresOpcion[i] || `Option ${i + 1}`, value: valor }))
           .filter((o): o is { name: string; value: string } =>

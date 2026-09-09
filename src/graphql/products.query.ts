@@ -67,6 +67,7 @@ export const PRODUCTS_PAGE_QUERY = /* GraphQL */ `
             title
             sku
             price
+            position
             selectedOptions {
               name
               value
@@ -86,6 +87,8 @@ export interface VariantNode {
   title: string | null;
   sku: string | null;
   price: string | null;
+  /** Orden que el artista definió en su admin. Sin esto el orden es arbitrario. */
+  position: number | null;
   selectedOptions: Array<{ name: string; value: string }>;
   inventoryItem: { id: string };
 }
@@ -133,6 +136,7 @@ export const EXTRA_VARIANTS_QUERY = /* GraphQL */ `
           title
           sku
           price
+          position
           selectedOptions {
             name
             value
