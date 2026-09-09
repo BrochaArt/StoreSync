@@ -543,6 +543,63 @@ entender por qué el proyecto rechaza las secret. La `service_role` legacy sigue
 siendo la única que funciona, y sigue pendiente de rotar — por ahora solo por la
 vía legacy, que invalida todas las keys legacy de golpe y necesita ventana.
 
+## El API entrega solo lo vendible (2026-09-08)
+
+Migración 021. Hasta acá `api_get_catalog` filtraba una sola cosa —
+`deleted_at is null`— y todo lo demás salía. Medido antes del cambio, sobre 388
+productos vivos:
+
+| | antes | ahora |
+|---|---|---|
+| Productos | 388 | **134** |
+| Variantes | — | **300** |
+| `status = archived` | 74 | 0 |
+| `status = draft` | 44 | 0 |
+| Activos sin stock vendible | 137 | 0 |
+
+Es un recorte del 65%, y es el número correcto: lo que salía antes no era un
+catálogo, era todo lo que había en la base. El consumidor estaba recibiendo obras
+archivadas por el artista, borradores que nunca se publicaron y piezas vendidas.
+
+Tres filtros nuevos:
+
+1. `p.status = 'active'` — archived y draft afuera. Efecto útil: archivar una
+   obra desde el admin de Shopify ahora la retira del API sin tocar nada acá.
+2. Variante vendible = `sum(available) > 0` sobre sus `inventory_levels`, aplicado
+   en dos lugares: para decidir qué productos entran y para podar las variantes
+   agotadas de los productos que sí entran.
+3. `s.status = 'active'` en la tienda. No estaba, y era un agujero: desactivar
+   una tienda no le cortaba el catálogo al consumidor.
+
+### Por qué `> 0` y no `<> 0`
+
+Porque **35 productos activos tienen inventario negativo**, hasta `-8`. Son
+sobreventas de Shopify. Con `<> 0` esos 35 seguirían saliendo como disponibles,
+que es exactamente el error que la migración viene a cerrar. Una variante sin
+ninguna fila de inventario también cuenta como no vendible (`coalesce` a 0): no se
+anuncia lo que no se pudo confirmar, y el panel ya vigila ese caso con
+`variantes_sin_inventario` (migración 019).
+
+### Lo que NO se filtra, a propósito
+
+Dentro de una variante vendible, las filas de `inventory` por ubicación se
+entregan completas, incluidas las que están en 0. El consumidor necesita saber
+que una ubicación no tiene stock; ocultarlas le rompe la contabilidad por
+location (migración 015).
+
+La forma del JSON no cambia. `status` sigue en el payload aunque ahora sea siempre
+`active`: sacarlo rompería a quien ya lo lee.
+
+### El registro de migraciones está desincronizado
+
+Encontrado al aplicar la 021: `supabase_migrations.schema_migrations` llega hasta
+la **016**, pero 017–020 sí están aplicadas —se verificó que la función en
+producción tiene la lista blanca de 017, y el panel de 019/020 funciona—. Alguien
+las aplicó por fuera del CLI. La 021 quedó registrada, así que el hueco es
+017–020. No rompe nada hoy, pero un `supabase db push` sobre un entorno limpio se
+comportaría raro. Conviene reconciliar el registro antes del próximo despliegue
+que dependa de él.
+
 ## Cómo correr todo en local
 
 ```bash
