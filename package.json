@@ -24,7 +24,7 @@
     "@supabase/supabase-js": "^2"
   },
   "devDependencies": {
-    "@types/node": "^22",
+    "@types/node": "^26",
     "tsx": "^4",
     "typescript": "^5"
   }
