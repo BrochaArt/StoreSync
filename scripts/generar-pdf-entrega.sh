@@ -23,6 +23,8 @@ command -v pandoc >/dev/null || { echo "✖ Falta pandoc. macOS: brew install pa
 if [ -z "${CHROME:-}" ]; then
   for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
            "/Applications/Chromium.app/Contents/MacOS/Chromium" \
+           "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
+           "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
            "$(command -v google-chrome || true)" \
            "$(command -v chromium || true)"; do
     [ -n "$c" ] && [ -x "$c" ] && CHROME="$c" && break
@@ -63,4 +65,9 @@ mv "$TMP/salida.pdf" "$PDF"
 
 paginas="$(command -v pdfinfo >/dev/null && pdfinfo "$PDF" | awk '/^Pages:/{print $2}' || echo '?')"
 echo "✔ $PDF  ($paginas páginas)"
-echo "  Contiene la API key en claro: mándalo por un canal que controles."
+# El documento de entrega por defecto lleva la API key del consumidor en claro.
+# Con MD= apuntando a otra fuente eso no tiene por qué ser cierto, así que el
+# aviso solo sale cuando corresponde.
+if [ "$MD" = "docs/api-gateway-handoff.md" ]; then
+  echo "  Contiene la API key en claro: mándalo por un canal que controles."
+fi
